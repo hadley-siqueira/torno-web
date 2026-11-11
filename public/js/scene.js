@@ -13,11 +13,29 @@ const PATH_COLORS = {
   thread: new THREE.Color(0xe060ff),
 };
 
+// Descobre quem vai desenhar o WebGL antes de criar o renderizador (para decidir a qualidade)
+function probeRenderer() {
+  try {
+    const gl = document.createElement('canvas').getContext('webgl2');
+    if (!gl) return { name: '?', software: false };
+    const ext = gl.getExtension('WEBGL_debug_renderer_info');
+    const name = String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+    return { name, software: /swiftshader|llvmpipe|softpipe|basic render|software|warp/i.test(name) };
+  } catch {
+    return { name: '?', software: false };
+  }
+}
+
 export class LatheScene {
   constructor(container) {
     this.container = container;
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this._glInfo = probeRenderer();
+    // Sem aceleração gráfica (tudo na CPU): sem suavização de bordas, menos pixels,
+    // menos pontos na peça e no máximo ~24 quadros/s (ver render)
+    this.lowPower = this._glInfo.software;
+    const renderer = new THREE.WebGLRenderer({ antialias: !this.lowPower, alpha: true });
+    renderer.setPixelRatio(this.lowPower ? 1 : Math.min(window.devicePixelRatio, 1.5));
     renderer.localClippingEnabled = true;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.05;
@@ -55,6 +73,7 @@ export class LatheScene {
     this.scene.add(this.spindleGroup, this.machineGroup);
 
     this.clipPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), 0);
+    this.needsRender = true; // só redesenha quando algo muda (ver render)
     this.spindleAngle = 0;
     this.falling = [];
 
@@ -75,6 +94,7 @@ export class LatheScene {
     this.persp.aspect = this.aspect;
     this.persp.updateProjectionMatrix();
     if (this.orthoHalf) this.setOrthoSize(this.orthoHalf);
+    this.invalidate();
   }
 
   setOrthoSize(halfH) {
@@ -82,6 +102,7 @@ export class LatheScene {
     const halfW = halfH * (this.aspect || 1);
     Object.assign(this.ortho, { left: -halfW, right: halfW, top: halfH, bottom: -halfH });
     this.ortho.updateProjectionMatrix();
+    this.invalidate();
   }
 
   // ---------- Peça e placa ----------
@@ -92,7 +113,7 @@ export class LatheScene {
       this.stock.dispose();
     }
     this.clearFalling();
-    this.stock = new Stock(params);
+    this.stock = new Stock({ ...params, segments: this.lowPower ? 32 : 72 });
     this.spindleGroup.add(this.stock.mesh);
     this.scene.add(this.stock.section);
     this.buildMachine();
@@ -210,6 +231,7 @@ export class LatheScene {
       this.toolMeshes[t.id] = g;
     }
     if (this.toolId) this.setTool(this.toolId);
+    this.invalidate();
   }
 
   setTool(id) {
@@ -218,14 +240,17 @@ export class LatheScene {
     // a torre fica sobre o suporte da ferramenta ativa
     const h = this.toolMeshes[id]?.userData.holder;
     if (h) this.turretBox.position.set((h.z0 + h.z1) / 2, h.x1 + 15, -2);
+    this.invalidate();
   }
 
   setToolPos(z, r) {
     this.toolGroup.position.set(z, r, 0);
+    this.invalidate();
   }
 
   setToolAlarm(on) {
     for (const g of Object.values(this.toolMeshes)) g.userData.insertMat.emissive.setHex(on ? 0xaa0000 : 0x000000);
+    this.invalidate();
   }
 
   // ---------- Trajetória ----------
@@ -271,12 +296,14 @@ export class LatheScene {
     this.pathDone.geometry.setDrawRange(0, 0);
     this.scene.add(this.pathPreview, this.pathDone);
     this.setShowPath(this.showPath ?? true);
+    this.invalidate();
   }
 
   setProgress(evIdx, segInEvent) {
     if (!this.pathDone) return;
     const s = this.segStart[Math.min(evIdx, this.segStart.length - 1)] + segInEvent;
     this.pathDone.geometry.setDrawRange(0, s * 2);
+    this.invalidate();
   }
 
   setShowPath(on) {
@@ -285,6 +312,7 @@ export class LatheScene {
       this.pathPreview.visible = on && !this.finished;
       this.pathDone.visible = on && !this.finished;
     }
+    this.invalidate();
   }
 
   setSection(on) {
@@ -300,8 +328,10 @@ export class LatheScene {
       st.material.clippingPlanes = on ? [this.clipPlane] : [];
       st.material.needsUpdate = true;
       st.section.visible = on;
+      if (on) st.updateSection(true);
     }
     if (this.stock && this.finished && this.finishedStock) this.stock.section.visible = false;
+    this.invalidate();
   }
 
   // ---------- Cavacos ----------
@@ -331,6 +361,7 @@ export class LatheScene {
       this.chipVel[i * 3 + 2] = (Math.random() - 0.2) * 90;
       this.chipLife[i] = 0.6 + Math.random() * 0.8;
     }
+    this.invalidate();
   }
 
   updateChips(dt) {
@@ -350,8 +381,10 @@ export class LatheScene {
         p[i * 3 + 1] = -1e5;
       }
     }
-    if (any || this.chipsWereActive) this.chips.geometry.attributes.position.needsUpdate = true;
+    const changed = any || this.chipsWereActive;
+    if (changed) this.chips.geometry.attributes.position.needsUpdate = true;
     this.chipsWereActive = any;
+    return changed;
   }
 
   // ---------- Peça cortada caindo ----------
@@ -361,9 +394,11 @@ export class LatheScene {
     mesh.userData.life = 4;
     this.scene.add(mesh);
     this.falling.push(mesh);
+    this.invalidate();
   }
 
   updateFalling(dt) {
+    let moving = false;
     for (const m of this.falling) {
       const v = m.userData.vel;
       m.userData.life -= dt;
@@ -372,10 +407,12 @@ export class LatheScene {
         v.y -= 600 * dt;
         m.position.addScaledVector(v, dt);
         m.rotation.z += m.userData.spin * dt;
+        moving = true;
       } else {
         m.position.y = floor + 8;
       }
     }
+    return moving;
   }
 
   clearFalling() {
@@ -384,6 +421,7 @@ export class LatheScene {
       m.geometry.dispose();
     }
     this.falling = [];
+    this.invalidate();
   }
 
   // ---------- Fuso ----------
@@ -392,6 +430,7 @@ export class LatheScene {
     const omega = Math.min((rpm / 60) * Math.PI * 2, 22); // limitado p/ não "piscar"
     this.spindleAngle += (dir === 4 ? -1 : 1) * omega * dt;
     this.spindleGroup.rotation.x = this.spindleAngle;
+    this.invalidate();
   }
 
   // ---------- Peça pronta ----------
@@ -407,7 +446,7 @@ export class LatheScene {
       this.finishedStock = null;
     }
     if (on && part) {
-      this.finishedStock = Stock.fromProfile(part);
+      this.finishedStock = Stock.fromProfile(part, this.lowPower ? 32 : 72);
       this.scene.add(this.finishedStock.mesh, this.finishedStock.section);
     }
     const machine = !on;
@@ -420,6 +459,7 @@ export class LatheScene {
     this.setShowPath(this.showPath ?? true);
     this.applySection();
     this.frameView(this.view);
+    this.invalidate();
   }
 
   // ---------- Câmera e vistas ----------
@@ -471,13 +511,64 @@ export class LatheScene {
     this.camera.updateProjectionMatrix();
     this.controls.update();
     this.applySection();
+    this.invalidate();
   }
 
+  /** Pede um novo desenho no próximo quadro. */
+  invalidate() {
+    this.needsRender = true;
+  }
+
+  /**
+   * Quem desenha o WebGL: { name, software }. software = sem aceleração gráfica
+   * (SwiftShader, llvmpipe, "Microsoft Basic Render Driver"…): tudo roda na CPU.
+   */
+  rendererInfo() {
+    if (this._glInfo && this._glInfo.name !== '?') return this._glInfo;
+    let name = '?';
+    try {
+      const gl = this.renderer.getContext();
+      const ext = gl.getExtension('WEBGL_debug_renderer_info');
+      name = String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
+    } catch {
+      /* sem acesso à informação */
+    }
+    const software = /swiftshader|llvmpipe|softpipe|basic render|software|warp/i.test(name);
+    this._glInfo = { name, software };
+    return this._glInfo;
+  }
+
+  isSoftwareRendering() {
+    return this.rendererInfo().software;
+  }
+
+  /** Modo econômico (WebGL por software): menos pixels e no máximo ~24 quadros/s. */
+  setLowPower(on) {
+    this.lowPower = on;
+    this.renderer.setPixelRatio(on ? 1 : Math.min(window.devicePixelRatio, 1.5));
+    this.resize();
+  }
+
+  /**
+   * Desenha só se algo mudou: câmera, peça, ferramenta, cavacos, peça caindo,
+   * fuso girando ou um invalidate(). Parado, não gasta CPU nem placa de vídeo.
+   */
   render(dt) {
-    this.updateChips(dt);
-    this.updateFalling(dt);
-    if (this.stock) this.stock.updateGeometry();
-    this.controls.update();
+    let changed = this.needsRender;
+    changed = this.updateChips(dt) || changed;
+    changed = this.updateFalling(dt) || changed;
+    if (this.stock && this.stock.updateGeometry()) changed = true;
+    if (this.controls.update()) changed = true;
+    if (!changed) return false;
+    const now = performance.now();
+    if (this.lowPower && now - (this.lastRender || 0) < 1000 / 24) {
+      this.needsRender = true; // desenha no próximo quadro permitido
+      return false;
+    }
+    this.lastRender = now;
+    this.needsRender = false;
     this.renderer.render(this.scene, this.camera);
+    this.renders = (this.renders || 0) + 1;
+    return true;
   }
 }

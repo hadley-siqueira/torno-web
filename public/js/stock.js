@@ -21,11 +21,11 @@ export class Stock extends StockModel {
    * Cria uma peça (sem trecho preso na placa) a partir de um perfil
    * { z: [...], r: [...], ri: [...] }, como o devolvido por separate().
    */
-  static fromProfile(part) {
+  static fromProfile(part, segments = 72) {
     const n = part.z.length;
     const z0 = part.z[0];
     const z1 = part.z[n - 1];
-    const s = new Stock({ diameter: 2 * Math.max(...part.r), length: Math.max(z1 - z0, 0.1), faceZ: z1, clamp: 0 });
+    const s = new Stock({ diameter: 2 * Math.max(...part.r), length: Math.max(z1 - z0, 0.1), faceZ: z1, clamp: 0, segments });
     let j = 0;
     for (let i = 0; i < s.N; i++) {
       const z = s.zAt(i);
@@ -35,7 +35,7 @@ export class Stock extends StockModel {
       s.ri[i] = part.ri[j] + (part.ri[j + 1] - part.ri[j]) * f;
       s.cut[i] = 3;
     }
-    s.dirty = true;
+    s.markDirty(0, s.N - 1);
     s.updateGeometry();
     return s;
   }
@@ -175,17 +175,28 @@ export class Stock extends StockModel {
   }
 
   updateGeometry(force = false) {
-    if (!this.dirty && !force) return false;
-    this.dirty = false;
+    const range = this.takeDirty();
+    if (!range && !force) return false;
     this.renderProfiles();
-    const { N, h, zz, ro, rin } = this;
+    const { N, h, zz, ro, rin, r, ri, RV } = this;
+    const solid = (i) => r[i] - ri[i] >= GONE;
+
+    // Trecho a reescrever: o alterado + 2 vizinhos (normais) + trechos vazios
+    // vizinhos (eles copiam o anel da amostra com material mais próxima)
+    let [lo, hi] = force || !range ? [0, N - 1] : range;
+    lo = Math.max(0, lo - 2);
+    hi = Math.min(N - 1, hi + 2);
+    while (lo > 0 && !solid(lo - 1)) lo--;
+    while (hi < N - 1 && !solid(hi + 1)) hi++;
+    const full = lo === 0 && hi === N - 1;
+
     const clamped = this.clamp > 0;
     const z0 = clamped ? this.zLeft - this.clamp : this.zAt(0);
     const r0 = clamped ? this.R0 : ro[0];
     const ri0 = clamped ? 0 : rin[0];
 
     this.writeRing(0, z0, r0, 0, 1, clamped ? RAW : CUT, clamped);
-    for (let i = 0; i < N; i++) {
+    for (let i = lo; i <= hi; i++) {
       const ip = Math.max(0, i - 1);
       const inx = Math.min(N - 1, i + 1);
       // externo: normal para fora
@@ -204,10 +215,18 @@ export class Stock extends StockModel {
     this.writeRing(this.capLo, z0, r0, -1, 0, clamped ? RAW : CUT, false);
     this.writeRing(this.capLi, z0, ri0, -1, 0, clamped ? RAW : CUT, false);
 
-    const g = this.geometry;
-    g.attributes.position.needsUpdate = true;
-    g.attributes.normal.needsUpdate = true;
-    g.attributes.color.needsUpdate = true;
+    // Envia para a placa de vídeo só os trechos reescritos
+    const ring = RV * 3;
+    for (const attr of Object.values(this.geometry.attributes)) {
+      attr.clearUpdateRanges();
+      if (!full) {
+        attr.addUpdateRange(0, ring); // anel inicial
+        attr.addUpdateRange((this.ringOuter + lo) * ring, (hi - lo + 1) * ring);
+        attr.addUpdateRange((this.ringInner + lo) * ring, (hi - lo + 1) * ring);
+        attr.addUpdateRange(this.capRo * ring, 4 * ring); // faces (4 anéis seguidos)
+      }
+      attr.needsUpdate = true;
+    }
     this.updateSection();
     return true;
   }
@@ -236,8 +255,10 @@ export class Stock extends StockModel {
     this.updateSection();
   }
 
-  updateSection() {
+  // Só recalcula quando visível (a vista em corte chama com force ao aparecer)
+  updateSection(force = false) {
     if (!this.secPos) return;
+    if (!force && !this.section.visible) return;
     const p = this.secPos;
     const put = (k, z, ro, rin) => {
       const vals = [ro, rin, -rin, -ro];

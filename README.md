@@ -110,6 +110,13 @@ para broca fora do centro e corpo da barra de mandrilar batendo no material.
 Exemplos em `programs/`: 01 básico, 02 eixo escalonado, 03 ponta esférica (Fanuc), 04 pino roscado M20,
 05 bucha (furação e mandrilamento), 06 peça completa (usa as 8 ferramentas), 07 eixo perfilado (gola côncava).
 
+### Desempenho e placa de vídeo
+
+No canto superior direito da vista há uma etiqueta: **verde = placa de vídeo**, **laranja = Software (CPU)**,
+com o nome do dispositivo e os quadros desenhados por segundo (0 = parado, sem gastar CPU).
+Se aparecer "Software (CPU)", ligue a aceleração gráfica do navegador (Chrome/Edge: Configurações →
+Sistema → "Usar aceleração gráfica quando disponível") e reinicie-o; se continuar, atualize o driver de vídeo.
+
 ### Vistas (inspiradas no SINUMERIK Operate)
 
 | Botão | O que mostra |

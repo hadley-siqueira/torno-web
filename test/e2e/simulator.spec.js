@@ -129,3 +129,14 @@ test('vistas Lateral/Face e "Peça pronta" ao fim do corte', async ({ page }) =>
   await page.click('#btnReset');
   await expect(page.locator('#btnFinished')).not.toHaveClass(/on/);
 });
+
+test('etiqueta mostra quem desenha o 3D (placa de vídeo ou software)', async ({ page }) => {
+  // nos testes o WebGL é por software (SwiftShader): etiqueta laranja e aviso nas mensagens
+  await expect(page.locator('#glKind')).toHaveText('Software (CPU)');
+  await expect(page.locator('#glInfo')).toHaveClass(/sw/);
+  await expect(page.locator('#glName')).toContainText(/SwiftShader/i);
+  await expect(page.locator('#messages')).toContainText('Aceleração gráfica desligada');
+  // parado, não redesenha (0 quadros/s)
+  await page.waitForTimeout(2500);
+  await expect(page.locator('#fps')).toHaveText('0');
+});

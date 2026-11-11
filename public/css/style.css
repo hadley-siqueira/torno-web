@@ -237,3 +237,15 @@ dialog.wide { width: min(900px, calc(100vw - 32px)); }
 .turret-row select { padding: 3px 6px; font-size: 12px; }
 .turret .btn { justify-self: start; margin-top: 4px; }
 .btn.sm.on { border-color: var(--accent); background: #1f5f72; }
+
+/* ---------- quem desenha o 3D (placa de vídeo ou software) ---------- */
+.glinfo {
+  position: absolute; top: 44px; right: 12px; font: 11px var(--mono); color: var(--muted);
+  background: rgba(14, 19, 25, .7); padding: 3px 8px; border-radius: 10px; max-width: 46%;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: help;
+}
+.glinfo b { font-weight: 700; }
+.glinfo i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background: var(--ok); }
+.glinfo.sw i { background: var(--warn); }
+.glinfo.sw { color: var(--warn); }
+.alarm { top: 76px; }

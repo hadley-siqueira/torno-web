@@ -130,6 +130,7 @@ function setLang(lang) {
   updateDocTitle();
   rerenderMessages();
   if (ui.alarmInfo) showAlarmBox(ui.alarmInfo);
+  if (scene.renderer) updateGlInfo();
 }
 
 // ---------------------------------------------------------------- configurações do usuário
@@ -458,6 +459,7 @@ function stockFromHeaderInputs(code) {
 
 // ---------------------------------------------------------------- controle
 function setStatus(s) {
+  droDirty = true;
   const pill = $('statusState');
   pill.textContent = tr(`st_${s}`);
   pill.className = `pill ${s === 'reset' ? '' : s}`;
@@ -563,32 +565,57 @@ function raiseAlarm(a) {
 }
 
 // ---------------------------------------------------------------- DRO
+// Só escreve no DOM quando o texto muda (evita recalcular o layout a cada quadro)
+function setText(id, text) {
+  const el = $(id);
+  const v = String(text);
+  if (el.textContent !== v) el.textContent = v;
+}
+
 function updateDRO() {
-  $('droX').textContent = (sim.pos.r * 2).toFixed(3);
-  $('droZ').textContent = sim.pos.z.toFixed(3);
+  setText('droX', (sim.pos.r * 2).toFixed(3));
+  setText('droZ', sim.pos.z.toFixed(3));
   const st = sim.state;
   const ev = sim.events[Math.min(sim.idx, sim.events.length - 1)];
-  $('droS').textContent = Math.round(sim.status === 'run' || sim.status === 'hold' ? sim.rpm : 0);
-  $('droDir').textContent = sim.dir === 3 ? '↻ M3' : sim.dir === 4 ? '↺ M4' : 'M5';
+  setText('droS', Math.round(sim.status === 'run' || sim.status === 'hold' ? sim.rpm : 0));
+  setText('droDir', sim.dir === 3 ? '↻ M3' : sim.dir === 4 ? '↺ M4' : 'M5');
   $('droDir').style.color = sim.dir ? 'var(--ok)' : 'var(--muted)';
   if (ev && ev.type === 'rapid' && sim.status === 'run') {
-    $('droF').textContent = tr('rapid');
-    $('droFu').textContent = '';
+    setText('droF', tr('rapid'));
+    setText('droFu', '');
   } else if (st) {
-    $('droF').textContent = st.feedPerRev ? st.F.toFixed(3) : Math.round(st.F);
-    $('droFu').textContent = st.feedPerRev ? 'mm/rot' : 'mm/min';
+    setText('droF', st.feedPerRev ? st.F.toFixed(3) : Math.round(st.F));
+    setText('droFu', st.feedPerRev ? 'mm/rot' : 'mm/min');
   }
-  $('droT').textContent = sim.tool;
-  $('droTn').textContent = toolName(app.turret[sim.tool], app.lang);
+  setText('droT', sim.tool);
+  setText('droTn', toolName(app.turret[sim.tool], app.lang));
   if (st) {
-    $('droG').textContent = st.motion === 33 ? 'G33' : `G${st.motion}`;
-    $('droMode').textContent = `${st.abs ? 'G90' : 'G91'} ${st.feedPerRev ? 'G95' : 'G94'} ${st.css ? `G96 ${st.Vc}m/min` : 'G97'}`;
+    setText('droG', st.motion === 33 ? 'G33' : `G${st.motion}`);
+    setText('droMode', `${st.abs ? 'G90' : 'G91'} ${st.feedPerRev ? 'G95' : 'G94'} ${st.css ? `G96 ${st.Vc}m/min` : 'G97'}`);
   }
-  $('statusTime').textContent = `${fmtTime(sim.elapsed)} / ${fmtTime(ui.result?.stats.totalTime)}`;
+  setText('statusTime', `${fmtTime(sim.elapsed)} / ${fmtTime(ui.result?.stats.totalTime)}`);
+}
+
+// ---------------------------------------------------------------- placa de vídeo / quadros por segundo
+// Etiqueta no canto da vista: mostra se o 3D usa a placa de vídeo ou software (CPU)
+function updateGlInfo() {
+  const info = scene.rendererInfo();
+  $('glInfo').classList.toggle('sw', info.software);
+  $('glKind').textContent = tr(info.software ? 'gl_sw' : 'gl_hw');
+  $('glName').textContent = info.name;
+  $('glInfo').title = tr('gl_help', { name: info.name });
+}
+
+let lastRenders = 0;
+function updateFps() {
+  const n = scene.renders || 0;
+  $('fps').textContent = n - lastRenders; // desenhos no último segundo (0 = parado, sem gastar)
+  lastRenders = n;
 }
 
 // ---------------------------------------------------------------- laço
 let last = performance.now();
+let droDirty = true; // mostrador só é atualizado quando algo muda
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
@@ -606,7 +633,10 @@ function frame(now) {
   const spinning = sim.status === 'run' || sim.status === 'hold';
   scene.updateSpindle(spinning ? sim.rpm : 0, spinning ? sim.dir : 0, dt);
   scene.render(dt);
-  updateDRO();
+  if (sim.status === 'run' || droDirty) {
+    updateDRO();
+    droDirty = sim.status === 'run';
+  }
   requestAnimationFrame(frame);
 }
 
@@ -732,5 +762,8 @@ $('btnFinished').onclick = () => showFinished(!scene.finished);
     }
   }
   setStatus('reset');
+  if (scene.isSoftwareRendering()) msgKey('S_SOFTWARE_GL', {}, 'warn'); // a cena já entrou no modo econômico
+  updateGlInfo();
+  setInterval(updateFps, 1000);
   requestAnimationFrame(frame);
 })();

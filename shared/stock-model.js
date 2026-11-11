@@ -39,7 +39,26 @@ export class StockModel {
     this.r.fill(this.R0);
     this.ri.fill(0);
     this.cut.fill(0);
+    this.markDirty(0, this.N - 1);
+  }
+
+  /**
+   * Marca o trecho de amostras [lo, hi] como alterado. A malha 3D só
+   * reenvia esse trecho para a placa de vídeo (enviar tudo a cada quadro travava).
+   */
+  markDirty(lo, hi) {
     this.dirty = true;
+    this.dirtyLo = Math.min(this.dirtyLo ?? lo, lo);
+    this.dirtyHi = Math.max(this.dirtyHi ?? hi, hi);
+  }
+
+  /** Devolve e limpa o trecho alterado (ou null). */
+  takeDirty() {
+    if (!this.dirty) return null;
+    const range = [this.dirtyLo ?? 0, this.dirtyHi ?? this.N - 1];
+    this.dirty = false;
+    this.dirtyLo = this.dirtyHi = undefined;
+    return range;
   }
 
   zAt(i) {
@@ -105,7 +124,7 @@ export class StockModel {
           res.removed = Math.max(res.removed, r[i] - Math.max(limit, ri[i]));
           r[i] = Math.max(limit, ri[i]);
           this.cut[i] |= 1;
-          this.dirty = true;
+          this.markDirty(i, i);
           if (r[i] - ri[i] < GONE) hitZero = true;
         }
       } else {
@@ -124,7 +143,7 @@ export class StockModel {
           res.removed = Math.max(res.removed, nri - ri[i]);
           ri[i] = nri;
           this.cut[i] |= 2;
-          this.dirty = true;
+          this.markDirty(i, i);
           if (r[i] - ri[i] < GONE) hitZero = true;
         }
       }
@@ -148,6 +167,7 @@ export class StockModel {
     for (let j = i + 1; j <= right; j++) maxT = Math.max(maxT, r[j] - ri[j]);
     if (maxT < 0.5 || (right - i) * this.h < 0.5) {
       for (let j = i + 1; j <= right; j++) r[j] = ri[j];
+      this.markDirty(i + 1, right);
       return -1;
     }
     return i; // amostras (i, right] estão soltas
@@ -162,7 +182,7 @@ export class StockModel {
       part.ri.push(this.ri[i]);
       this.r[i] = this.ri[i];
     }
-    this.dirty = true;
+    this.markDirty(idx + 1, this.N - 1);
     return part;
   }
 

@@ -52,6 +52,17 @@ O planejamento geral está em [PLANO.md](PLANO.md).
 - Contraponto, porta, refrigeração e luzes da máquina não existem.
 - A rotação da placa é limitada visualmente (para não "piscar"), não é a rotação real.
 
+## Desempenho
+
+- **Sem aceleração gráfica** (WebGL por software: SwiftShader, llvmpipe, "Microsoft Basic Render Driver"),
+  o 3D roda na CPU. O simulador detecta, avisa nas mensagens, mostra a etiqueta laranja
+  "Software (CPU)" no canto da vista e entra em modo econômico (sem suavização de bordas, menos pixels,
+  32 divisões na peça, no máximo ~24 quadros/s). Mesmo assim fica lento (~6 quadros/s usinando).
+- Medido em 2026-11-11 (WebGL por software): parado ~3% de CPU (antes ~10%, redesenhava sempre);
+  usinando, o envio da malha para a placa de vídeo deixou de existir no perfil (antes ~51% do tempo,
+  ~10 MB por quadro; agora só o trecho alterado).
+- A peça é desenhada com até ~2000 anéis × 72 divisões; peças muito longas pesam mais.
+
 ## Operação da máquina (ainda não existe)
 
 - Modos JOG, MDA, manivela, referenciamento, overrides de avanço e rotação.
