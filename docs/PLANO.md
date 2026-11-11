@@ -12,6 +12,24 @@ Limitações conhecidas da versão atual: [LIMITACOES.md](LIMITACOES.md).
 - **Objetivo do simulador:** cobrir as duas etapas no navegador, sem instalação, de modo que o que
   o aluno aprende aqui se transfira direto para a máquina real.
 
+### Como o professor da disciplina usa o SinuTrain nas aulas (relato de 2026-11-11)
+
+Fonte: áudio de ~3 min e mensagem escrita do professor da disciplina, transcritos e filtrados.
+
+1. **Peça bruta primeiro:** o aluno informa o diâmetro máximo do bruto (normalmente um cilindro maciço,
+   mas pode ser um **tubo**, para usinagem interna), o **zero peça** (referência das medidas), o
+   **comprimento total** e o **comprimento fixado nas castanhas**, e com isso o comprimento útil de usinagem.
+2. **Escolha das ferramentas** pela operação: desbaste, acabamento, corte (bedame), usinagem interna…
+3. **Programa passo a passo:** escreve e simula aos poucos, corrigindo o que errou. O simulador é
+   para **praticar**; o professor **não avalia o que é feito no simulador**.
+4. **Conferência das medidas:** depois de rodar, o aluno usa as **réguas/escalas dos eixos** do
+   simulador (Z ao longo da peça, X no diâmetro) para medir o comprimento total e os trechos usinados
+   e verificar se batem com as medidas programadas.
+5. **Avaliação no papel:** o professor fornece os dados tecnológicos (material, diâmetro a usinar,
+   avanço, velocidade de corte e **quantidade de passes** em cada trecho onde a seção muda), para que
+   exista um **gabarito padronizado**. Cada bloco com erro é eliminado; a nota é proporcional à
+   quantidade de blocos certos em relação ao gabarito.
+
 ## Princípios
 
 1. **Fidelidade ao fluxo da máquina, não à aparência de outro software.** SinuTrain e SSCNC
@@ -82,6 +100,14 @@ Ciclos do **802D sl** (são estes que os alunos usam na máquina):
 
 ### Pedidos de funcionalidade (2026-11-11)
 
+- [ ] **Peça bruta como no SinuTrain** (relato do professor da disciplina): além de diâmetro e comprimento,
+      **tubo** (diâmetro interno do bruto, para usinagem interna sem furar antes), **comprimento fixado
+      nas castanhas** (hoje fixo em 25 mm) e posição do **zero peça**. Mostrar o comprimento útil
+      (em balanço) e alarmar se a ferramenta for além dele. Ver pergunta 19 (como o aluno informa o
+      bruto no SinuTrain: tela ou linha no programa).
+- [ ] **Escolha de ferramentas pela operação:** a torre configurável já existe; nos exercícios, deixar
+      o professor definir quais ferramentas estão disponíveis e o aluno montar a torre.
+
 - [ ] **Roscas:** hoje a rosca aparece como um rebaixo liso até o fundo do filete. Pedido:
       - hélice visível na peça (externa e interna), com passo, profundidade e sentido corretos;
       - passes múltiplos de rosca visíveis (o filete aprofundando a cada passe);
@@ -112,8 +138,13 @@ Ciclos do **802D sl** (são estes que os alunos usam na máquina):
 
 ## Etapa 3: recursos didáticos
 
-**Aguardando confirmação do professor** (pergunta 16) antes de implementar. Detalhes em
+A conferência de medidas foi **confirmada** pelo professor da disciplina em 2026-11-11 (ver Contexto): os
+alunos medem o comprimento total e os trechos usinados com as réguas dos eixos. Detalhes em
 [Plano de medição e conferência da peça](#plano-de-medição-e-conferência-da-peça).
+
+- [ ] **Réguas graduadas nos eixos Z e X** nas vistas Lateral e Peça pronta, com linhas de
+      chamada ao passar o mouse sobre faces e diâmetros. É o que os alunos já usam no SinuTrain;
+      vem antes da fase 1.
 
 - [ ] **Fase 1 – Medir na peça:** modo "Medir" nas vistas Lateral e Peça pronta; Ø externo e do furo,
       comprimento entre faces, valor no formato do instrumento.
@@ -123,12 +154,27 @@ Ciclos do **802D sl** (são estes que os alunos usam na máquina):
       Detalhado em [Desenho técnico a partir da peça](#desenho-técnico-a-partir-da-peça-caminho-inverso)
       (fases A–E).
 - [ ] **Exercícios e avaliação:** enunciado, peça bruta, ferramentas disponíveis e nota automática.
+- [ ] **Correção por blocos contra o gabarito** (pedido do professor da disciplina, 2026-11-11): o professor
+      cadastra o programa-gabarito e os dados tecnológicos (material, diâmetro, avanço, Vc, passes por
+      trecho); o programa do aluno é comparado **bloco a bloco**; cada bloco com erro é eliminado e a
+      nota é `blocos certos ÷ blocos do gabarito`. Notas técnicas:
+      - alinhar os dois programas como um `diff` (um bloco a mais ou a menos no aluno não pode
+        "deslocar" todos os seguintes e zerar o resto);
+      - comparar o **significado** do bloco, não o texto: ordem das palavras, `X30` = `X30.0`, espaços,
+        comentários e números de bloco `N` não contam como erro (critério a confirmar, pergunta 20);
+      - mostrar ao professor a lista de blocos certos/errados lado a lado, com a nota sugerida, e
+        deixá-lo ajustar antes de publicar;
+      - complementar com a simulação: além do texto, conferir se a peça do aluno tem as cotas do
+        gabarito (usa o plano de medição).
+      Como hoje a avaliação é no papel, o uso inicial pode ser o professor **digitar** a resposta do aluno
+      ou o aluno entregar pela turma em atividade de treino.
 - [x] Contas e entrega de programas pelo servidor (turmas e entregas, 2026-11-11).
 
 ## Plano de medição e conferência da peça
 
-Registrado em 2026-11-11. **Status: proposta, aguardando o professor confirmar** que a conferência de
-medidas após a simulação é feita assim nas aulas e quais instrumentos são usados.
+Registrado em 2026-11-11. **Status: conferência confirmada** pelo professor da disciplina (2026-11-11): os alunos
+medem com as réguas dos eixos do simulador. Instrumentos reais (paquímetro, micrômetro) não foram
+citados; a fase 1 pode começar pelas réguas e pela leitura direta do valor.
 
 ### Contexto (pesquisa)
 
@@ -409,8 +455,10 @@ Nenhuma bloqueia o trabalho atual; as suposições acima cobrem as lacunas.
 | 6 | Fotos da tela ligada (quando a máquina voltar) e close do painel da porta e das teclas de função auxiliar. Manual de operação do 802D sl, se houver | Fidelidade do perfil "Máquina" |
 | 8 | O que são as duas manivelas do painel da porta? | Como simular JOG/manivela |
 | 9 | Professor que opera a máquina: como os alunos fazem o preset das ferramentas e o zero da peça? | Fluxo de operação a simular |
-| 11 | O aluno usa rotação fixa (`G97 S…`) ou velocidade de corte constante (`G96`)? | Padrão dos exemplos e exercícios |
-| 16 | Confirmar com o professor: a conferência de medidas após a simulação é feita assim (diâmetros e comprimentos entre faces)? Quais instrumentos os alunos usam (paquímetro 0,02 ou 0,05 mm, micrômetro 0,01 mm, súbito)? Querem desenho em diedro? | Libera o [plano de medição](#plano-de-medição-e-conferência-da-peça) e define as resoluções |
+| 11 | O aluno usa rotação fixa (`G97 S…`) ou velocidade de corte constante (`G96`)? Pista (professor da disciplina, 2026-11-11): na avaliação ele fornece a **velocidade de corte** e o avanço; falta saber se o aluno calcula o `S` (G97) ou programa `G96 S<Vc>`. | Padrão dos exemplos e exercícios |
+| 16 | ~~Confirmar a conferência de medidas~~ **Respondida em parte (professor da disciplina, 2026-11-11):** medem comprimento total e trechos com as réguas dos eixos. Falta: querem desenho em diedro? Conferem diâmetros também? Texto original: a conferência de medidas após a simulação é feita assim (diâmetros e comprimentos entre faces)? Quais instrumentos os alunos usam (paquímetro 0,02 ou 0,05 mm, micrômetro 0,01 mm, súbito)? Querem desenho em diedro? | Libera o [plano de medição](#plano-de-medição-e-conferência-da-peça) e define as resoluções |
 | 15 | Capturas de tela do **SinuTrain do professor** (é no PC, não depende da máquina): a tela de criar máquina, mostrando os tipos de comando disponíveis, e algumas telas de uso | Saber se os alunos veem 802D sl ou Operate; serve de referência visual enquanto a máquina está parada |
 | 18 | Nos desenhos das atividades, as cotas de comprimento são **em paralelo** (todas a partir de uma face), **em cadeia** ou misturadas? | Estilo padrão da cotagem automática ([desenho técnico](#desenho-técnico-a-partir-da-peça-caminho-inverso), fase C) |
+| 19 | No SinuTrain, como o aluno informa a peça bruta (diâmetro, tubo, comprimento, fixação, zero peça)? Numa **tela de configuração** ou numa **linha do programa** (ex.: `WORKPIECE(...)`)? Pedir uma foto da tela ou um programa de aluno | Define se o simulador lê o bruto do programa (como o SinuTrain) ou só de um formulário |
+| 20 | Na correção por blocos: o que conta como erro? Ex.: ordem das palavras (`G1 X30 Z-20` × `G1 Z-20 X30`), repetir ou omitir palavras modais (`G1` em toda linha), `X30` × `X30.0`, número de bloco `N`. Um bloco a mais no programa do aluno também é erro? Pedir um gabarito e uma prova corrigida como exemplo | Regras da correção automática |
 | 14 | O perfil "Máquina" deve imitar o **802D sl** (máquina real) ou a interface do **SinuTrain/Operate** (o que os alunos usam agora)? | Define o alvo do protótipo de interface |
