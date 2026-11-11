@@ -1,5 +1,7 @@
 # Plano do simulador de torno CNC
 
+Limitações conhecidas da versão atual: [LIMITACOES.md](LIMITACOES.md).
+
 ## Contexto
 
 - **Público:** alunos de ensino técnico.
@@ -27,11 +29,12 @@
 
 Feito em 2026-11-11:
 
-- [x] **Login** de aluno e professor (senha com scrypt, sessão por cookie, limite de tentativas).
+- [x] **Cadastro aberto e login** (senha com scrypt, sessão por cookie, limite de tentativas e de cadastros por IP).
 - [x] **Banco SQLite** (módulo nativo do Node), com migrações.
 - [x] **Programas salvos por aluno** (criar, salvar, salvar como, excluir) e rascunho automático no navegador.
 - [x] **Configurações por usuário** (idioma, dialeto, peça bruta, velocidade, vistas).
-- [x] **Painel do professor:** cadastrar alunos e turmas, redefinir senha, desativar, ler os programas dos alunos.
+- [x] **Turmas:** qualquer usuário cria as suas e convida alunos por link/código; alunos **entregam** programas
+      e o professor vê só as entregas. Administração do sistema por `ADMIN_USERNAMES`.
 - [x] **Idioma PT/EN** em toda a interface e nas mensagens do interpretador.
 - [x] **Interpretador rodando no navegador**; `/api/parse` fica como apoio no servidor.
 - [x] **Seleção de dialeto** (Sinumerik / Fanuc) para resolver G70/G71.
@@ -44,6 +47,7 @@ Falta:
 - [ ] **Tabela de ferramentas editável** (raio de ponta, corretores de geometria e desgaste).
 - [ ] **Origens** G54–G57 com deslocamento real (hoje o zero da peça é sempre a face).
 - [ ] **Implantação no VPS:** HTTPS (proxy reverso), `NODE_ENV=production`, backup do banco.
+- [ ] **Recuperação de senha por e-mail** (o e-mail já é coletado, opcional; precisa de um serviço de envio no VPS).
 
 ## Etapa 1: programação (foco SinuTrain)
 
@@ -61,8 +65,10 @@ Ciclos do **802D sl** (são estes que os alunos usam na máquina):
 - [ ] **CYCLE94 / CYCLE96:** alívios (forma E/F e de rosca).
 - [ ] **Rosca:** G33 com hélice visível na peça, **CYCLE97** (rosca) e CYCLE98 (rosca encadeada), com passes múltiplos.
 - [ ] **Furação no centro:** CYCLE81–CYCLE83, com broca de centro e broca helicoidal.
-- [ ] **Usinagem interna:** a peça passa a ter perfil externo **e** interno (furo), para furação,
-      mandrilamento e rosca interna. Exige mudar o modelo da peça em `stock.js` (hoje só tem raio externo).
+- [x] **Usinagem interna** (2026-11-11): perfil externo e interno; furação em X0, mandrilamento e rosca
+      interna; colisão do corpo da barra e broca fora do centro.
+- [x] **Torre configurável** (2026-11-11): catálogo de ferramentas, cada posição escolhida numa lista.
+- [x] **Exemplos de curso técnico** (2026-11-11): pino roscado M20, bucha, peça completa com as 8 ferramentas.
 - [ ] Fanuc (secundário): G71/G70, G75, G76/G92, G83, só se a pergunta 4 confirmar.
 - [ ] **Compensação de raio da ponta** G41/G42 (perfil correto em cones e raios).
 - [ ] **Subprogramas e variáveis básicas:** subprogramas (`.SPF`, chamada por nome/`L`), parâmetros `R`,
@@ -147,6 +153,8 @@ a mesma sequência (abrir programa, simular, fazer preset, rodar em AUTO) sem pr
 | 3b | Posição da ferramenta | **Torre traseira**: a ferramenta fica **atrás** da linha de centro. Na tela, X positivo para cima (como o simulador já desenha); G2/G3 aparecem como hoje. | 2026-11-11 |
 | 4 | Fanuc | **Só o suporte básico** que já existe. Nada de ciclos Fanuc por enquanto. | 2026-11-11 |
 | 5 | Distribuição | Roda em um **VPS**, alunos acessam pelo **navegador**. Arquitetura cliente-servidor: processamento pesado (interpretador, simulação, 3D) **no cliente**; o VPS cuida de login, sessão, banco de dados e armazenamento. Mover processamento para o VPS só se for necessário. **Login e trabalhos salvos por aluno.** | 2026-11-11 |
+| 16 | Contas | **Cadastro aberto**, sem tipo fixo de conta. Quem cria uma turma é o professor dela; convida alunos por **link/código**. O professor vê só as **entregas** (cópia do programa no momento da entrega). E-mail **opcional** (para recuperar senha no futuro). Administrador do sistema definido por configuração (`ADMIN_USERNAMES`). | 2026-11-11 |
+| 17 | Torre | **Configurável.** Não há padrão industrial de posição: quem prepara a máquina define e registra na folha de ferramentas. Os exemplos usam uma montagem padrão (T1 desbaste … T8 rosca interna). | 2026-11-11 |
 | 6 | Material de referência | Recebidos: visão geral, closes do painel de comando, da tela e do teclado, torre, contraponto e adesivo de fórmulas. **Fotos da tela ligada não são possíveis**: a máquina está com defeito. | 2026-11-11 |
 | 10 | Ferramentas da torre | Usar as ferramentas mais comuns em cursos técnicos (tabela "Torre padrão" abaixo). | 2026-11-11 |
 | 13 | SinuTrain | O professor usa o **SinuTrain v4.95**. Ele diz que usa "a 802D sl", mas não está claro se é a máquina criada no SinuTrain ou a máquina real. Ver suposição. | 2026-11-11 |

@@ -2,18 +2,26 @@ import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseProgram } from '../shared/gcode.js';
-import { COOKIE, createLoginLimiter, createSessionStore, parseCookies, requireUser } from './auth.js';
+import { COOKIE, adminSet, createLoginLimiter, createSessionStore, parseCookies, requireUser } from './auth.js';
 import authRoutes from './routes/auth.js';
 import settingsRoutes from './routes/settings.js';
 import programRoutes from './routes/programs.js';
 import adminRoutes from './routes/admin.js';
+import turmaRoutes from './routes/turmas.js';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-export function createApp({ db, secureCookies = process.env.NODE_ENV === 'production', trustProxy = process.env.TRUST_PROXY }) {
+export function createApp({
+  db,
+  secureCookies = process.env.NODE_ENV === 'production',
+  trustProxy = process.env.TRUST_PROXY,
+  admins = adminSet(),
+  signupsPerHour = 5,
+}) {
   const app = express();
   const sessions = createSessionStore(db);
   const limiter = createLoginLimiter();
+  const signupLimiter = createLoginLimiter({ max: signupsPerHour, windowMs: 60 * 60_000 }); // contas por hora por IP
   if (trustProxy) app.set('trust proxy', trustProxy === 'true' ? true : trustProxy);
   app.disable('x-powered-by');
 
@@ -31,6 +39,7 @@ export function createApp({ db, secureCookies = process.env.NODE_ENV === 'produc
     const sid = parseCookies(req.headers.cookie)[COOKIE];
     const user = sessions.get(sid);
     if (user) {
+      user.isAdmin = admins.has(user.username.toLowerCase());
       req.user = user;
       req.sessionId = sid;
     }
@@ -48,9 +57,10 @@ export function createApp({ db, secureCookies = process.env.NODE_ENV === 'produc
   });
   app.use(express.json({ limit: '512kb' }));
 
-  app.use('/api/auth', authRoutes({ db, sessions, limiter, secureCookies }));
+  app.use('/api/auth', authRoutes({ db, sessions, limiter, signupLimiter, secureCookies }));
   app.use('/api/settings', settingsRoutes({ db }));
   app.use('/api/programs', programRoutes({ db, examplesDir: path.join(ROOT, 'programs') }));
+  app.use('/api/turmas', turmaRoutes({ db }));
   app.use('/api/admin', adminRoutes({ db, sessions }));
 
   // Interpretação no servidor: apoio (ex.: correção de exercícios). O cliente interpreta localmente.

@@ -16,7 +16,7 @@ export async function api(method, url, body) {
   });
   if (res.status === 401 && !url.startsWith('/api/auth/login')) {
     location.href = `/login.html?next=${encodeURIComponent(location.pathname + location.search)}`;
-    throw new ApiError(401, 'not_authenticated');
+    return new Promise(() => {}); // a página vai mudar: não continua o fluxo
   }
   const type = res.headers.get('content-type') || '';
   const data = type.includes('json') ? await res.json() : await res.text();

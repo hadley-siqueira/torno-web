@@ -9,7 +9,7 @@
 //  - Pontos dos eventos: [z, r, t, rpm], t = tempo acumulado (s) dentro do evento.
 //  - Mensagens saem como { code, params }; o texto vem de shared/i18n.js (PT/EN).
 
-import { getTool, isSimulated } from './tools.js';
+import { getTool, DEFAULT_TURRET } from './tools.js';
 
 export const DEFAULTS = {
   home: { x: 150, z: 100 }, // X em diâmetro
@@ -20,6 +20,7 @@ export const DEFAULTS = {
   maxEvents: 200000,
   defaultTool: 1,
   dialect: 'sinumerik', // 'sinumerik' | 'fanuc' (decide o significado de G70/G71)
+  turret: DEFAULT_TURRET, // ferramentas montadas: { posição: ferramenta } (ver buildTurret)
 };
 
 const IGNORED_G = new Set([9, 17, 18, 19, 40, 53, 54, 55, 56, 57, 58, 59, 60, 64, 80, 500]);
@@ -52,7 +53,7 @@ export function parseProgram(text, options = {}) {
     Vc: 0, // S em G96 (m/min)
     lims: opt.maxRpm,
     spindle: 0, // 0 parado, 3 horário, 4 anti-horário
-    tool: opt.defaultTool,
+    tool: getTool(opt.defaultTool, opt.turret) ? opt.defaultTool : Number(Object.keys(opt.turret)[0] || 1),
     coolant: false,
   };
 
@@ -71,7 +72,6 @@ export function parseProgram(text, options = {}) {
   let ended = false;
 
   const warn = (line, code, params = {}) => warnings.push({ line, code, params });
-  const warnedTools = new Set();
 
   const rpmAt = (r) => {
     if (!st.spindle) return 0;
@@ -342,15 +342,14 @@ export function parseProgram(text, options = {}) {
       if ('T' in val) {
         let t = val.T;
         if (t >= 100) t = Math.floor(t / 100); // Fanuc T0101
-        if (!Number.isFinite(t) || !getTool(t)) throw new GCodeAlarm('E_TOOL_MISSING', { t: Number.isFinite(val.T) ? val.T : '?' });
+        if (!Number.isFinite(t) || !getTool(t, opt.turret)) throw new GCodeAlarm('E_TOOL_MISSING', { t: Number.isFinite(val.T) ? val.T : '?' });
         if (t !== st.tool) {
           st.tool = t;
           stats.tools.add(t);
-          push({ line: li, type: 'toolchange', duration: opt.toolChangeTime, code: 'I_TOOLCHANGE', params: { t } });
-          if (!isSimulated(getTool(t)) && !warnedTools.has(t)) {
-            warnedTools.add(t);
-            warn(li, 'W_TOOL_NOT_SIMULATED', { t });
-          }
+          push({
+            line: li, type: 'toolchange', duration: opt.toolChangeTime,
+            code: 'I_TOOLCHANGE', params: { t, type: getTool(t, opt.turret).type },
+          });
         }
       }
 

@@ -217,3 +217,22 @@ dialog.wide { width: min(900px, calc(100vw - 32px)); }
 .prog-code { display: grid; grid-template-rows: auto 1fr; gap: 6px; }
 .prog-code textarea { width: 100%; min-height: 340px; background: #151b21; color: var(--text); border: 1px solid var(--line); border-radius: 4px; font: 13px/20px var(--mono); padding: 8px; resize: vertical; }
 @media (max-width: 640px) { .prog-view { grid-template-columns: 1fr; } .prog-list { border-right: 0; max-height: 160px; } }
+.center-link { text-align: center; color: var(--accent); font-size: 13px; }
+.login .btn { text-align: center; }
+.login p { margin: 0; line-height: 1.5; }
+.inline-form { display: flex; gap: 8px; flex-wrap: wrap; }
+.inline-form input { flex: 1; min-width: 180px; background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 7px 9px; font: inherit; }
+.turma-list { display: grid; gap: 12px; margin-top: 12px; }
+.turma-card { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; display: grid; gap: 8px; background: var(--panel2); }
+.turma-card h3 { margin: 0; font-size: 15px; }
+.turma-card details summary { cursor: pointer; color: var(--accent); font-size: 13px; }
+.turma-details h3 { font-size: 13px; margin: 12px 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+.invite-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 12px; }
+.invite { flex: 1; min-width: 220px; background: #151b21; color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 5px 8px; font: 12px var(--mono); }
+.code-view { width: 100%; min-height: 360px; background: #151b21; color: var(--text); border: 1px solid var(--line); border-radius: 4px; font: 13px/20px var(--mono); padding: 8px; resize: vertical; }
+.turret { display: grid; gap: 4px; padding-top: 4px; }
+.turret .small { font-size: 11px; margin: 0 0 4px; line-height: 1.35; }
+.settings label.turret-row { display: grid; grid-template-columns: 26px 1fr; align-items: center; gap: 6px; font-size: 12px; color: var(--text); }
+.turret-row b { color: var(--accent); }
+.turret-row select { padding: 3px 6px; font-size: 12px; }
+.turret .btn { justify-self: start; margin-top: 4px; }

@@ -1,15 +1,41 @@
 import { Router } from 'express';
-import { COOKIE, cookieOptions, hashPassword, requireUser, validPassword, verifyPassword } from '../auth.js';
+import {
+  COOKIE, cookieOptions, hashPassword, requireUser, validEmail, validName, validPassword, validUsername, verifyPassword,
+} from '../auth.js';
 
-export default function authRoutes({ db, sessions, limiter, secureCookies }) {
+export default function authRoutes({ db, sessions, limiter, signupLimiter, secureCookies }) {
   const r = Router();
   const byUsername = db.prepare('SELECT * FROM users WHERE username = ?');
+  const byEmail = db.prepare('SELECT id FROM users WHERE email = ? COLLATE NOCASE');
   const byId = db.prepare('SELECT * FROM users WHERE id = ?');
+  const insert = db.prepare('INSERT INTO users (username, name, email, password_hash) VALUES (?, ?, ?, ?)');
   const setHash = db.prepare('UPDATE users SET password_hash = ? WHERE id = ?');
   // usado para gastar o mesmo tempo quando o usuário não existe
   const dummyHash = hashPassword('dummy-password');
 
-  const publicUser = (u) => ({ id: u.id, username: u.username, name: u.name, role: u.role, turma: u.turma });
+  const startSession = (res, userId) => res.cookie(COOKIE, sessions.create(userId), cookieOptions(secureCookies));
+
+  r.post('/signup', (req, res) => {
+    const b = req.body || {};
+    const email = typeof b.email === 'string' && b.email.trim() ? b.email.trim() : null;
+    if (!validName(b.name)) return res.status(400).json({ error: 'invalid_name' });
+    if (!validUsername(b.username)) return res.status(400).json({ error: 'invalid_username' });
+    if (!validPassword(b.password)) return res.status(400).json({ error: 'invalid_password' });
+    if (email !== null && !validEmail(email)) return res.status(400).json({ error: 'invalid_email' });
+    if (signupLimiter.blocked(req.ip)) return res.status(429).json({ error: 'signup_limit' });
+    if (byUsername.get(b.username)) return res.status(409).json({ error: 'username_exists' });
+    if (email && byEmail.get(email)) return res.status(409).json({ error: 'email_exists' });
+    let lastInsertRowid;
+    try {
+      ({ lastInsertRowid } = insert.run(b.username, b.name.trim(), email, hashPassword(b.password)));
+    } catch (e) {
+      if (String(e.message).includes('UNIQUE')) return res.status(409).json({ error: 'username_exists' });
+      throw e;
+    }
+    signupLimiter.fail(req.ip); // conta cadastros por IP
+    startSession(res, Number(lastInsertRowid));
+    res.status(201).json({ ok: true });
+  });
 
   r.post('/login', (req, res) => {
     const { username, password } = req.body || {};
@@ -23,8 +49,8 @@ export default function authRoutes({ db, sessions, limiter, secureCookies }) {
       return res.status(401).json({ error: 'login_failed' });
     }
     limiter.reset(key);
-    res.cookie(COOKIE, sessions.create(u.id), cookieOptions(secureCookies));
-    res.json({ user: publicUser(u) });
+    startSession(res, u.id);
+    res.json({ ok: true });
   });
 
   r.post('/logout', (req, res) => {
@@ -44,7 +70,7 @@ export default function authRoutes({ db, sessions, limiter, secureCookies }) {
     if (!validPassword(next)) return res.status(400).json({ error: 'invalid_password' });
     setHash.run(hashPassword(next), u.id);
     sessions.destroyUser(u.id); // encerra as outras sessões
-    res.cookie(COOKIE, sessions.create(u.id), cookieOptions(secureCookies));
+    startSession(res, u.id);
     res.json({ ok: true });
   });
 

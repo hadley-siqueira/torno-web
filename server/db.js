@@ -34,6 +34,36 @@ const MIGRATIONS = [
      user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
      json TEXT NOT NULL
    );`,
+  // 2: sem papel fixo; turmas próprias, convites e entregas
+  `ALTER TABLE users DROP COLUMN role;
+   ALTER TABLE users DROP COLUMN turma;
+   ALTER TABLE users ADD COLUMN email TEXT;
+   CREATE UNIQUE INDEX users_email ON users(email COLLATE NOCASE) WHERE email IS NOT NULL;
+   CREATE TABLE turmas (
+     id INTEGER PRIMARY KEY,
+     owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+     name TEXT NOT NULL,
+     invite_code TEXT NOT NULL UNIQUE,
+     created_at TEXT NOT NULL DEFAULT (datetime('now'))
+   );
+   CREATE INDEX turmas_owner ON turmas(owner_id);
+   CREATE TABLE turma_members (
+     turma_id INTEGER NOT NULL REFERENCES turmas(id) ON DELETE CASCADE,
+     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+     joined_at TEXT NOT NULL DEFAULT (datetime('now')),
+     PRIMARY KEY (turma_id, user_id)
+   );
+   CREATE INDEX members_user ON turma_members(user_id);
+   CREATE TABLE submissions (
+     id INTEGER PRIMARY KEY,
+     turma_id INTEGER NOT NULL REFERENCES turmas(id) ON DELETE CASCADE,
+     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+     program_id INTEGER REFERENCES programs(id) ON DELETE SET NULL,
+     name TEXT NOT NULL,
+     code TEXT NOT NULL,
+     submitted_at TEXT NOT NULL DEFAULT (datetime('now'))
+   );
+   CREATE INDEX submissions_turma ON submissions(turma_id, user_id);`,
 ];
 
 export function openDb(file = process.env.DB_PATH || path.join(process.cwd(), 'data', 'cnc.db')) {

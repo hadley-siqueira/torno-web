@@ -1,0 +1,188 @@
+; PECA COMPLETA - usa as 8 ferramentas da torre
+; Bruto: D50 x 75 mm, face em Z1
+; Torre padrao: T1 desbaste, T2 acabamento 35, T3 bedame, T4 rosca externa,
+;               T5 broca de centro, T6 broca D16, T7 barra de mandrilar, T8 rosca interna
+; Peca final (55 mm): rosca externa M30x2 com canal, ressalto D40, cone D40/D46,
+;                     furo com rosca interna M20x1,5 x 18 mm
+G18 G90 G95 DIAMON
+G54
+
+; ========== FACEAMENTO E DESBASTE (T1) ==========
+T1 D1
+G96 S200 LIMS=2500 M3
+G0 X54 Z0
+G1 X-1.6 F0.15
+G0 Z2
+; D46 (sobremetal 0,5 no diametro)
+G0 X46.5
+G1 Z-55.9 F0.25
+G1 X51
+G0 Z2
+; D40 + cone
+G0 X43.5
+G1 Z-39.9                 ; termina sobre a linha do cone
+G1 X47
+G0 Z2
+G0 X40.5
+G1 Z-35.9
+G1 X46.5 Z-43.9           ; desbaste do cone
+G1 X48
+G0 Z2
+; D30 ate o ressalto
+G0 X36.5
+G1 Z-24.9
+G1 X41
+G0 Z2
+G0 X32.5
+G1 Z-24.9
+G1 X37
+G0 Z2
+G0 X30.5
+G1 Z-24.9
+G1 X33
+G0 X150 Z100
+
+; ========== ACABAMENTO EXTERNO (T2) ==========
+T2 D1
+G96 S250 LIMS=3000 M3
+G0 X25 Z1
+G1 X30 Z-1.5 F0.1         ; chanfro 1,5 x 45
+G1 Z-25
+G1 X38
+G1 X40 Z-26               ; chanfro 1 x 45
+G1 Z-36
+G1 X46 Z-44               ; cone
+G1 Z-55
+G1 X51
+G0 X150 Z100
+
+; ========== CANAL DE SAIDA DA ROSCA 5 x D26,5 (T3) ==========
+T3 D1
+G97 S800 M3
+G0 X34 Z-25               ; 1o mergulho: Z-25 a Z-22
+G1 X26.5 F0.05
+G0 X34
+G0 Z-23                   ; 2o mergulho: Z-23 a Z-20
+G1 X26.5
+G0 X34
+G0 X150 Z100
+
+; ========== ROSCA EXTERNA M30 x 2 (T4) ==========
+; profundidade 1,23 mm no raio -> nucleo D27,55
+T4 D1
+G97 S500 M3
+G0 X33 Z6
+G0 X29.3
+G33 Z-21.5 K2
+G0 X33
+G0 Z6
+G0 X28.8
+G33 Z-21.5 K2
+G0 X33
+G0 Z6
+G0 X28.4
+G33 Z-21.5 K2
+G0 X33
+G0 Z6
+G0 X28.05
+G33 Z-21.5 K2
+G0 X33
+G0 Z6
+G0 X27.8
+G33 Z-21.5 K2
+G0 X33
+G0 Z6
+G0 X27.6
+G33 Z-21.5 K2
+G0 X33
+G0 Z6
+G0 X27.55
+G33 Z-21.5 K2
+G0 X33
+G0 Z6
+G0 X27.55
+G33 Z-21.5 K2
+G0 X33
+G0 X150 Z100
+
+; ========== FURO DE CENTRO (T5) ==========
+T5 D1
+G97 S1500 M3
+G0 X0 Z5
+G1 Z-4 F0.08
+G0 Z5
+G0 X150 Z100
+
+; ========== FURACAO D16 (T6) ==========
+T6 D1
+G97 S600 M3
+G0 X0 Z5
+G1 Z-12 F0.12
+G0 Z2
+G0 Z-11
+G1 Z-24
+G0 Z2
+G0 Z-23
+G1 Z-32
+G0 Z5
+G0 X150 Z100
+
+; ========== MANDRILAMENTO PARA A ROSCA (T7) ==========
+; diametro do furo para M20x1,5: 20 - 1,0825 x 1,5 = 18,38
+T7 D1
+G96 S150 LIMS=2000 M3
+G0 X22.4 Z1
+G1 X18.4 Z-1 F0.1         ; chanfro de entrada
+G1 Z-22
+G1 X16                    ; recua para o centro antes de sair
+G0 Z4
+G0 X150 Z100
+
+; ========== ROSCA INTERNA M20 x 1,5 (T8) ==========
+; na rosca interna o diametro AUMENTA a cada passe
+T8 D1
+G97 S500 M3
+G0 X17 Z4
+G0 X18.7
+G33 Z-18 K1.5
+G0 X17
+G0 Z4
+G0 X19.0
+G33 Z-18 K1.5
+G0 X17
+G0 Z4
+G0 X19.3
+G33 Z-18 K1.5
+G0 X17
+G0 Z4
+G0 X19.55
+G33 Z-18 K1.5
+G0 X17
+G0 Z4
+G0 X19.75
+G33 Z-18 K1.5
+G0 X17
+G0 Z4
+G0 X19.9
+G33 Z-18 K1.5
+G0 X17
+G0 Z4
+G0 X20.0
+G33 Z-18 K1.5
+G0 X17
+G0 Z4
+G0 X20.0
+G33 Z-18 K1.5
+G0 X17
+G0 Z4
+G0 X150 Z100
+
+; ========== CORTE (T3) ==========
+T3 D1
+G97 S700 M3
+G0 X54 Z-58
+G1 X-1 F0.05
+G0 X150
+G0 Z100
+M5
+M30

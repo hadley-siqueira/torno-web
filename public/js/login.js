@@ -16,6 +16,7 @@ document.querySelectorAll('[data-lang]').forEach((b) => {
 // Só aceita redirecionar para caminhos locais
 const next = new URLSearchParams(location.search).get('next');
 const target = next && /^\/(?!\/)/.test(next) ? next : '/';
+if (next) document.getElementById('toSignup').href = `/signup.html?next=${encodeURIComponent(target)}`;
 
 // já logado? (fetch direto: api() redirecionaria para cá de novo em caso de 401)
 fetch('/api/auth/me', { credentials: 'same-origin' })

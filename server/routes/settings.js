@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireUser } from '../auth.js';
 import { LANGS } from '../../shared/i18n.js';
+import { sanitizeTurret } from '../../shared/tools.js';
 
 const num = (v, min, max) => (typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max ? v : undefined);
 
@@ -12,6 +13,8 @@ export function sanitizeSettings(input = {}) {
   if (Number.isInteger(input.speed) && input.speed >= 0 && input.speed <= 20) out.speed = input.speed;
   if (typeof input.showPath === 'boolean') out.showPath = input.showPath;
   if (typeof input.section === 'boolean') out.section = input.section;
+  const turret = sanitizeTurret(input.turret);
+  if (turret) out.turret = turret;
   if (input.stock && typeof input.stock === 'object') {
     const s = {
       diameter: num(input.stock.diameter, 5, 200),

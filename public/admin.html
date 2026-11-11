@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Torno CNC – Alunos</title>
+  <title>Torno CNC – Administração</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Ccircle cx=%228%22 cy=%228%22 r=%226%22 fill=%22%2319a7c9%22/%3E%3C/svg%3E" />
   <link rel="stylesheet" href="/css/style.css" />
 </head>
@@ -11,48 +11,23 @@
   <header class="topbar">
     <div class="brand"><span class="logo">⟳</span> <span data-i18n="app_title"></span> <small data-i18n="admin_title"></small></div>
     <div class="user">
-      <select id="langSelect" title="Idioma / Language">
-        <option value="pt">PT</option>
-        <option value="en">EN</option>
-      </select>
+      <a class="btn" href="/turmas.html" data-i18n="turmas"></a>
       <a class="btn" href="/" data-i18n="simulator"></a>
     </div>
   </header>
-
   <main class="admin">
     <section class="card">
-      <h2 data-i18n="create_user"></h2>
-      <form id="formCreate" class="create-grid">
-        <label><span data-i18n="name"></span><input id="cName" required maxlength="100" /></label>
-        <label><span data-i18n="username"></span><input id="cUser" required pattern="[a-zA-Z0-9._\-]{3,40}" autocomplete="off" /></label>
-        <label><span data-i18n="password"></span><input id="cPass" required minlength="6" autocomplete="new-password" /></label>
-        <label><span data-i18n="class_group"></span><input id="cTurma" maxlength="40" list="turmas" /></label>
-        <label><span data-i18n="role"></span>
-          <select id="cRole">
-            <option value="aluno" data-i18n="role_aluno"></option>
-            <option value="professor" data-i18n="role_professor"></option>
-          </select>
-        </label>
-        <button class="btn primary" type="submit" data-i18n="create"></button>
-      </form>
-      <div class="error" id="createMsg"></div>
-      <datalist id="turmas"></datalist>
-    </section>
-
-    <section class="card">
-      <div class="row-between">
-        <h2 data-i18n="students"></h2>
-        <select id="filterTurma"></select>
-      </div>
+      <h2 data-i18n="admin_title"></h2>
       <div class="table-wrap">
         <table class="users">
           <thead>
             <tr>
               <th data-i18n="name"></th>
               <th data-i18n="username"></th>
-              <th data-i18n="class_group"></th>
-              <th data-i18n="role"></th>
-              <th data-i18n="my_programs"></th>
+              <th>E-mail</th>
+              <th data-i18n="programs_count"></th>
+              <th data-i18n="turmas"></th>
+              <th data-i18n="created_at"></th>
               <th></th>
             </tr>
           </thead>
@@ -61,21 +36,6 @@
       </div>
     </section>
   </main>
-
-  <dialog id="dlgPrograms" class="card wide">
-    <div class="row-between">
-      <h2 id="progTitle"></h2>
-      <button class="btn" id="progClose" data-i18n="close"></button>
-    </div>
-    <div class="prog-view">
-      <ul id="progList" class="prog-list"></ul>
-      <div class="prog-code">
-        <div class="row-between"><b id="codeName"></b><button class="btn sm" id="btnCopy" data-i18n="copy"></button></div>
-        <textarea id="codeView" readonly spellcheck="false"></textarea>
-      </div>
-    </div>
-  </dialog>
-
   <script type="module" src="/js/admin.js"></script>
 </body>
 </html>

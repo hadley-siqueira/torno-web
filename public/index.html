@@ -25,13 +25,15 @@
       <button id="btnSave" class="btn" data-i18n="save"></button>
       <button id="btnSaveAs" class="btn" data-i18n="save_as"></button>
       <button id="btnDelete" class="btn" data-i18n="delete"></button>
+      <button id="btnSubmit" class="btn" data-i18n="submit"></button>
     </div>
     <div class="user">
       <select id="langSelect" title="Idioma / Language">
         <option value="pt">PT</option>
         <option value="en">EN</option>
       </select>
-      <a id="linkAdmin" class="btn hidden" href="/admin.html" data-i18n="students"></a>
+      <a class="btn" href="/turmas.html" data-i18n="turmas"></a>
+      <a id="linkAdmin" class="btn hidden" href="/admin.html" data-i18n="admin"></a>
       <details class="menu">
         <summary id="userName"></summary>
         <div class="menu-list">
@@ -74,7 +76,7 @@
 
       <details class="settings">
         <summary data-i18n="turret"></summary>
-        <ol class="tools" id="toolList"></ol>
+        <div class="turret" id="toolList"></div>
       </details>
 
       <div class="messages" id="messages"></div>
@@ -136,6 +138,19 @@
       <div class="row-end">
         <button type="button" class="btn" id="pwCancel" data-i18n="cancel"></button>
         <button type="submit" class="btn primary" data-i18n="save"></button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlgSubmit" class="card">
+    <form method="dialog" id="formSubmit">
+      <h2 data-i18n="submit_title"></h2>
+      <p id="submitProg" class="muted"></p>
+      <label><span data-i18n="turmas"></span><select id="submitTurma"></select></label>
+      <div class="error" id="submitError"></div>
+      <div class="row-end">
+        <button type="button" class="btn" id="submitCancel" data-i18n="cancel"></button>
+        <button type="submit" class="btn primary" data-i18n="submit"></button>
       </div>
     </form>
   </dialog>

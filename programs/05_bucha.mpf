@@ -1,0 +1,95 @@
+; BUCHA - furacao, mandrilamento e corte
+; Bruto: D50 x 70 mm, face em Z1
+; Torre padrao: T1 desbaste, T2 acabamento, T3 bedame, T5 broca de centro, T6 broca D16, T7 barra de mandrilar
+; Peca final: D46 x 40 mm, furo D24 passante, rebaixo D30 x 12 mm
+G18 G90 G95 DIAMON
+G54
+
+; ========== FACEAMENTO E DESBASTE EXTERNO (T1) ==========
+T1 D1
+G96 S200 LIMS=2500 M3
+G0 X54 Z0
+G1 X-1.6 F0.15
+G0 Z2
+G0 X46.5
+G1 Z-43.9 F0.25
+G1 X51
+G0 X150 Z100
+
+; ========== ACABAMENTO EXTERNO (T2) ==========
+T2 D1
+G96 S250 LIMS=3000 M3
+G0 X42 Z1
+G1 X46 Z-1 F0.1           ; chanfro 1 x 45
+G1 Z-41
+G1 X51
+G0 X150 Z100
+
+; ========== FURO DE CENTRO (T5) ==========
+T5 D1
+G97 S1500 M3
+G0 X0 Z5
+G1 Z-4 F0.08
+G0 Z5
+G0 X150 Z100
+
+; ========== FURACAO D16 (T6) ==========
+; furacao com quebra de cavaco: avanca, recua e volta 1 mm antes do fundo
+T6 D1
+G97 S600 M3
+G0 X0 Z5
+G1 Z-15 F0.12
+G0 Z2
+G0 Z-14
+G1 Z-30
+G0 Z2
+G0 Z-29
+G1 Z-46                   ; ponta passa do comprimento da peca
+G0 Z5
+G0 X150 Z100
+
+; ========== MANDRILAMENTO (T7) ==========
+T7 D1
+G96 S150 LIMS=2000 M3
+G0 X15 Z2                 ; entra no furo de D16
+; desbaste do furo D24 (passante)
+G0 X19
+G1 Z-41 F0.2
+G1 X17                    ; recua para o centro antes de sair
+G0 Z2
+G0 X22
+G1 Z-41
+G1 X20
+G0 Z2
+G0 X23.5
+G1 Z-41
+G1 X21.5
+G0 Z2
+; desbaste do rebaixo D30 x 12
+G0 X26.5
+G1 Z-11.9
+G1 X23.5
+G0 Z2
+G0 X29.5
+G1 Z-11.9
+G1 X26.5
+G0 Z2
+; acabamento interno
+G0 X34 Z1
+G1 X30 Z-1 F0.1           ; chanfro interno 1 x 45
+G1 Z-12
+G1 X24                    ; fundo do rebaixo
+G1 Z-41
+G1 X22
+G0 Z5
+G0 X150 Z100
+
+; ========== CORTE (T3) ==========
+T3 D1
+G97 S700 M3
+G0 X54 Z-43
+G1 X22 F0.05              ; basta passar do furo para separar a bucha
+G0 X150
+G0 Z100
+M5
+M30

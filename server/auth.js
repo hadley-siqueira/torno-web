@@ -35,7 +35,7 @@ export function parseCookies(header = '') {
 export function createSessionStore(db) {
   const insert = db.prepare('INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)');
   const find = db.prepare(
-    `SELECT s.id, s.expires_at, u.id AS user_id, u.username, u.name, u.role, u.turma, u.active
+    `SELECT s.id, s.expires_at, u.id AS user_id, u.username, u.name, u.email, u.active
        FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.id = ?`
   );
   const touch = db.prepare('UPDATE sessions SET expires_at = ? WHERE id = ?');
@@ -58,7 +58,7 @@ export function createSessionStore(db) {
       if (!s || s.expires_at < Date.now() || !s.active) return null;
       // renova a validade no máximo uma vez por hora
       if (s.expires_at - Date.now() < ttl - 3600_000) touch.run(Date.now() + ttl, id);
-      return { id: s.user_id, username: s.username, name: s.name, role: s.role, turma: s.turma };
+      return { id: s.user_id, username: s.username, name: s.name, email: s.email };
     },
     destroy(id) {
       del.run(id);
@@ -102,8 +102,15 @@ export function requireUser(req, res, next) {
   next();
 }
 
-export function requireProfessor(req, res, next) {
+// Administrador do sistema: usuários listados em ADMIN_USERNAMES (separados por vírgula)
+export const adminSet = (env = process.env.ADMIN_USERNAMES) =>
+  new Set(String(env || '').split(',').map((u) => u.trim().toLowerCase()).filter(Boolean));
+
+export function requireAdmin(req, res, next) {
   if (!req.user) return res.status(401).json({ error: 'not_authenticated' });
-  if (req.user.role !== 'professor') return res.status(403).json({ error: 'forbidden' });
+  if (!req.user.isAdmin) return res.status(403).json({ error: 'forbidden' });
   next();
 }
+
+export const validName = (n) => typeof n === 'string' && n.trim().length >= 1 && n.trim().length <= 100;
+export const validEmail = (e) => typeof e === 'string' && e.length <= 200 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);

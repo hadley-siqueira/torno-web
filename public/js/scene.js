@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { Stock } from './stock.js';
-import { TOOLS } from '/shared/tools.js';
+import { DEFAULT_TURRET } from '/shared/tools.js';
 
 const PATH_COLORS = {
   rapid: new THREE.Color(0xffa63d),
@@ -147,8 +147,30 @@ export class LatheScene {
     this.toolGroup = new THREE.Group();
     this.scene.add(this.toolGroup);
     this.toolMeshes = {};
-    const holderMat = new THREE.MeshStandardMaterial({ color: 0x2c3138, metalness: 0.6, roughness: 0.45 });
-    for (const t of Object.values(TOOLS)) {
+    this.holderMat = new THREE.MeshStandardMaterial({ color: 0x2c3138, metalness: 0.6, roughness: 0.45 });
+    // Torre/carro porta-ferramenta
+    const turret = new THREE.Mesh(
+      new THREE.BoxGeometry(50, 30, 50),
+      new THREE.MeshStandardMaterial({ color: 0x8a939e, metalness: 0.4, roughness: 0.5 })
+    );
+    turret.position.set(12, 90, -2);
+    this.turretBox = turret;
+    this.toolGroup.add(turret);
+    this.setTurret(DEFAULT_TURRET);
+  }
+
+  /** (Re)cria as malhas das ferramentas montadas na torre. */
+  setTurret(turret) {
+    for (const g of Object.values(this.toolMeshes)) {
+      this.toolGroup.remove(g);
+      g.traverse((o) => {
+        if (o.geometry) o.geometry.dispose();
+        if (o.material && o.material !== this.holderMat) o.material.dispose();
+      });
+    }
+    this.toolMeshes = {};
+    const holderMat = this.holderMat;
+    for (const t of Object.values(turret)) {
       const g = new THREE.Group();
       const shape = new THREE.Shape(t.insert.map(([z, x]) => new THREE.Vector2(z, x)));
       const insGeo = new THREE.ExtrudeGeometry(shape, { depth: 5, bevelEnabled: false });
@@ -160,22 +182,20 @@ export class LatheScene {
       holder.position.set((h.z0 + h.z1) / 2, (h.x0 + h.x1) / 2, -2);
       g.add(ins, holder);
       g.userData.insertMat = insMat;
+      g.userData.holder = h;
       g.visible = false;
       this.toolGroup.add(g);
       this.toolMeshes[t.id] = g;
     }
-    // Torre/carro porta-ferramenta
-    const turret = new THREE.Mesh(
-      new THREE.BoxGeometry(50, 30, 50),
-      new THREE.MeshStandardMaterial({ color: 0x8a939e, metalness: 0.4, roughness: 0.5 })
-    );
-    turret.position.set(12, 90, -2);
-    this.toolGroup.add(turret);
+    if (this.toolId) this.setTool(this.toolId);
   }
 
   setTool(id) {
     for (const [k, g] of Object.entries(this.toolMeshes)) g.visible = Number(k) === id;
     this.toolId = id;
+    // a torre fica sobre o suporte da ferramenta ativa
+    const h = this.toolMeshes[id]?.userData.holder;
+    if (h) this.turretBox.position.set((h.z0 + h.z1) / 2, h.x1 + 15, -2);
   }
 
   setToolPos(z, r) {

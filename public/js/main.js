@@ -3,8 +3,8 @@ import { LatheScene } from './scene.js';
 import { api, ApiError } from './api.js';
 import { applyI18n, guessLang, rememberLang } from './i18n-dom.js';
 import { parseProgram } from '/shared/gcode.js';
-import { t, formatMessage, LANGS } from '/shared/i18n.js';
-import { TOOLS, toolName, isSimulated } from '/shared/tools.js';
+import { t, formatMessage, apiErrorText, LANGS } from '/shared/i18n.js';
+import { TOOL_TYPES, TOOL_SLOTS, TURRET_DEFAULT, buildTurret, sanitizeTurret, toolName } from '/shared/tools.js';
 
 const $ = (id) => document.getElementById(id);
 const SPEEDS = [0.5, 1, 2, 5, 10, 20, 50, 100, 200];
@@ -23,6 +23,8 @@ const app = {
   doc: { kind: 'new', id: null, name: '', savedCode: '' },
   examples: [],
   mine: [],
+  turretCfg: { ...TURRET_DEFAULT },
+  turret: buildTurret(TURRET_DEFAULT),
 };
 
 const sim = {
@@ -96,7 +98,7 @@ function rerenderMessages() {
   $('messages').innerHTML = '';
   messages.forEach(renderMessage);
 }
-const errorText = (e) => tr('S_ERROR', { msg: e instanceof ApiError ? e.code : e.message });
+const errorText = (e) => apiErrorText(app.lang, e instanceof ApiError ? e.code : e.message);
 
 // ---------------------------------------------------------------- idioma
 function setLang(lang) {
@@ -325,23 +327,80 @@ async function deleteProgram() {
   }
 }
 
-// ---------------------------------------------------------------- torre
-function renderToolList() {
-  const ol = $('toolList');
-  ol.replaceChildren();
-  for (const tool of Object.values(TOOLS)) {
-    const li = document.createElement('li');
-    li.value = tool.id;
-    li.textContent = `T${tool.id} – ${toolName(tool, app.lang)}`;
-    if (!isSimulated(tool)) {
-      const s = document.createElement('span');
-      s.className = 'ns';
-      s.textContent = ` (${tr('not_simulated')})`;
-      li.appendChild(s);
-    }
-    li.title = tool.detail[app.lang] || tool.detail.pt;
-    ol.appendChild(li);
+// ---------------------------------------------------------------- entrega na turma
+async function openSubmitDialog() {
+  if (app.doc.kind !== 'mine' || isDirty()) return msgKey('submit_need_save', {}, 'warn');
+  const { joined } = await api('GET', '/api/turmas');
+  if (!joined.length) return msgKey('submit_no_turmas', {}, 'warn');
+  $('submitProg').textContent = app.doc.name;
+  $('submitTurma').replaceChildren(...joined.map((j) => new Option(`${j.name} – ${j.owner_name}`, j.id)));
+  $('submitError').textContent = '';
+  $('dlgSubmit').showModal();
+}
+
+$('formSubmit').onsubmit = async (e) => {
+  e.preventDefault();
+  const sel = $('submitTurma');
+  try {
+    await api('POST', `/api/turmas/${sel.value}/submissions`, { programId: app.doc.id });
+    $('dlgSubmit').close();
+    const turma = sel.options[sel.selectedIndex].text;
+    msgKey('submit_ok', { name: app.doc.name, turma }, 'ok');
+  } catch (ex) {
+    $('submitError').textContent = errorText(ex);
   }
+};
+$('submitCancel').onclick = () => $('dlgSubmit').close();
+
+// ---------------------------------------------------------------- torre
+// Cada posição recebe um tipo do catálogo (ou fica vazia), como na preparação da máquina
+function renderToolList() {
+  const box = $('toolList');
+  box.replaceChildren();
+  const help = document.createElement('p');
+  help.className = 'muted small';
+  help.textContent = tr('turret_help');
+  box.appendChild(help);
+  for (let n = 1; n <= TOOL_SLOTS; n++) {
+    const row = document.createElement('label');
+    row.className = 'turret-row';
+    const tag = document.createElement('b');
+    tag.textContent = `T${n}`;
+    const sel = document.createElement('select');
+    sel.appendChild(new Option(tr('empty_station'), ''));
+    for (const [type, def] of Object.entries(TOOL_TYPES)) sel.appendChild(new Option(def.name[app.lang] || def.name.pt, type));
+    sel.value = app.turretCfg[n] || '';
+    const tool = app.turret[n];
+    if (tool) sel.title = tool.detail[app.lang] || tool.detail.pt;
+    sel.onchange = () => setTurretSlot(n, sel.value);
+    row.append(tag, sel);
+    box.appendChild(row);
+  }
+  const reset = document.createElement('button');
+  reset.className = 'btn sm';
+  reset.textContent = tr('restore_default');
+  reset.onclick = () => applyTurret({ ...TURRET_DEFAULT });
+  box.appendChild(reset);
+}
+
+function applyTurret(cfg, save = true) {
+  if (sim.status === 'run' || sim.status === 'hold') {
+    msgKey('S_STOCK_BUSY', {}, 'warn');
+    renderToolList();
+    return;
+  }
+  app.turretCfg = sanitizeTurret(cfg);
+  app.turret = buildTurret(app.turretCfg);
+  scene.setTurret(app.turret);
+  if (save) saveSettings({ turret: app.turretCfg });
+  renderToolList();
+  doReset();
+}
+
+function setTurretSlot(n, type) {
+  applyTurret({ ...app.turretCfg, [n]: type });
+  const tool = app.turret[n];
+  msgKey('turret_changed', { t: n, name: tool ? toolName(tool, app.lang) : tr('empty_station') }, 'info');
 }
 
 // ---------------------------------------------------------------- peça bruta
@@ -390,7 +449,7 @@ function setStatus(s) {
 function prepare() {
   clearMessages();
   lineMarks = new Map();
-  const res = parseProgram(ta.value, { home: sim.home, dialect: app.settings.dialect || 'sinumerik' });
+  const res = parseProgram(ta.value, { home: sim.home, dialect: app.settings.dialect || 'sinumerik', turret: app.turret });
   sim.result = res;
   sim.events = res.events;
   sim.lines = ta.value.split('\n');
@@ -421,7 +480,7 @@ function rewind() {
   sim.startedIdx = -1;
   sim.elapsed = 0;
   sim.pos = { z: sim.home.z, r: sim.home.x / 2 };
-  sim.tool = 1;
+  sim.tool = app.turret[1] ? 1 : Number(Object.keys(app.turret)[0] || 1);
   sim.state = null;
   sim.rpm = 0;
   sim.dir = 0;
@@ -525,15 +584,15 @@ const partMaterial = new THREE.MeshStandardMaterial({ color: 0xd8dce2, metalness
 
 function carveSegment(z0, r0, z1, r1, type, line) {
   const stock = scene.stock;
-  const tool = TOOLS[sim.tool];
+  const tool = app.turret[sim.tool];
   const ch = scene.chuckInfo;
   // colisão com a placa (castanhas)
   if (Math.min(z0, z1) < ch.zFront && Math.min(r0, r1) < ch.jawOuter) {
     raiseAlarm(() => tr('A_CHUCK'), line);
     return false;
   }
-  if (!isSimulated(tool)) return true; // usinagem interna/furação: ainda sem remoção de material
-  if (r0 >= stock.R0 && r1 >= stock.R0) return true;
+  if (!tool) return true;
+  if (tool.kind === 'external' && r0 >= stock.R0 && r1 >= stock.R0) return true;
   const L = Math.hypot(z1 - z0, r1 - r0);
   const n = Math.max(1, Math.ceil(L / (stock.h * 0.7)));
   for (let i = 1; i <= n; i++) {
@@ -541,6 +600,11 @@ function carveSegment(z0, r0, z1, r1, type, line) {
     const z = z0 + (z1 - z0) * f;
     const r = r0 + (r1 - r0) * f;
     const res = stock.carve(tool, z, r);
+    if (res.collision || res.offCenter) {
+      sim.pos = { z, r };
+      raiseAlarm(() => tr(res.collision ? 'A_BAR' : 'A_DRILL_CENTER'), line);
+      return false;
+    }
     if (res.removed > 0) {
       if (type === 'rapid' && res.removed > 0.05) {
         sim.pos = { z, r };
@@ -649,7 +713,7 @@ function updateDRO() {
     $('droFu').textContent = st.feedPerRev ? 'mm/rot' : 'mm/min';
   }
   $('droT').textContent = sim.tool;
-  $('droTn').textContent = toolName(TOOLS[sim.tool], app.lang);
+  $('droTn').textContent = toolName(app.turret[sim.tool], app.lang);
   if (st) {
     $('droG').textContent = st.motion === 33 ? 'G33' : `G${st.motion}`;
     $('droMode').textContent = `${st.abs ? 'G90' : 'G91'} ${st.feedPerRev ? 'G95' : 'G94'} ${st.css ? `G96 ${st.Vc}m/min` : 'G97'}`;
@@ -718,6 +782,7 @@ $('btnNew').onclick = newProgram;
 $('btnSave').onclick = () => saveProgram(false);
 $('btnSaveAs').onclick = () => saveProgram(true);
 $('btnDelete').onclick = deleteProgram;
+$('btnSubmit').onclick = openSubmitDialog;
 $('btnLogout').onclick = logout;
 $('btnPassword').onclick = openPasswordDialog;
 $('langSelect').onchange = (e) => {
@@ -756,11 +821,16 @@ document.querySelectorAll('[data-view]').forEach((b) => (b.onclick = () => scene
   }
   app.user = me.user;
   $('userName').textContent = app.user.name;
-  $('linkAdmin').classList.toggle('hidden', app.user.role !== 'professor');
+  $('linkAdmin').classList.toggle('hidden', !app.user.isAdmin);
 
   app.settings = await api('GET', '/api/settings').catch(() => ({}));
   const s = app.settings;
   if (s.stock) setStockInputs(s.stock);
+  if (s.turret) {
+    app.turretCfg = sanitizeTurret(s.turret);
+    app.turret = buildTurret(app.turretCfg);
+    scene.setTurret(app.turret);
+  }
   if (s.dialect) $('dialectSelect').value = s.dialect;
   const speedIdx = Number.isInteger(s.speed) ? Math.min(SPEEDS.length - 1, s.speed) : 3;
   sim.speed = SPEEDS[speedIdx];

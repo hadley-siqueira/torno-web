@@ -5,13 +5,22 @@ G-code, aperta **Cycle Start** e vê a ferramenta usinando a peça em 3D (Three.
 
 ```bash
 npm install
-npm run create-user -- --role professor --username prof --name "Seu Nome"   # mostra a senha gerada
-npm start          # http://localhost:3000
+npm start          # http://localhost:3000 – crie sua conta em "Criar conta"
 npm test           # testes do interpretador e da API
 ```
 
 Requer Node.js 22.13 ou mais novo (usa o SQLite nativo do Node). O banco fica em `data/cnc.db`
-(mude com `DB_PATH`). O professor cadastra os alunos em **Alunos** (`/admin.html`).
+(mude com `DB_PATH`).
+
+### Contas e turmas
+
+- Qualquer pessoa cria a própria conta (nome, usuário, senha e e-mail opcional).
+- Não existe tipo fixo de conta: quem cria uma turma é o professor dela. A mesma pessoa pode ser
+  professora de uma turma e aluna de outra.
+- O professor convida pelo **link/código** da turma (pode gerar um novo código, o que invalida o antigo).
+- O aluno **entrega** um programa na turma; fica guardada uma cópia de como estava no momento.
+  O professor vê só as entregas, não os demais programas do aluno.
+- Administração do sistema (desativar contas abusivas): usuários listados em `ADMIN_USERNAMES`.
 
 ### Variáveis de ambiente
 
@@ -21,6 +30,7 @@ Requer Node.js 22.13 ou mais novo (usa o SQLite nativo do Node). O banco fica em
 | `DB_PATH` | Arquivo do banco SQLite (padrão `data/cnc.db`) |
 | `NODE_ENV=production` | Cookie de sessão só por HTTPS (`Secure`) |
 | `TRUST_PROXY` | Atrás de proxy reverso (nginx/Caddy): ex. `1` ou `loopback` |
+| `ADMIN_USERNAMES` | Usuários administradores do sistema, separados por vírgula |
 
 ## Arquitetura
 
@@ -39,15 +49,19 @@ o servidor cuida de login, sessões, banco de dados e programas dos alunos.
 | Peça | `public/js/stock.js` | Perfil r(z), remoção de material, malha de revolução |
 | Cena 3D | `public/js/scene.js` | Placa, ferramenta, trajetória, cavacos, vista em corte |
 | Simulador | `public/js/main.js` | Editor, DRO, softkeys, programas, laço da simulação |
-| Professor | `public/admin.html`, `public/js/admin.js` | Alunos, turmas e programas dos alunos |
+| Turmas | `public/turmas.html`, `public/join.html` | Criar turmas, convites, alunos e entregas |
+| Contas | `public/login.html`, `public/signup.html` | Entrar e criar conta |
+| Administração | `public/admin.html` | Ativar/desativar contas (só `ADMIN_USERNAMES`) |
 
-API (todas exigem login, exceto `POST /api/auth/login`; alterações só com JSON da mesma origem):
-- `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `POST /api/auth/password`
+API (todas exigem login, exceto cadastro e login; alterações só com JSON da mesma origem):
+- `POST /api/auth/signup`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `POST /api/auth/password`
 - `GET|PUT /api/settings`
 - `GET /api/programs` (exemplos + meus), `GET /api/programs/examples/:nome`,
   `GET|PUT|DELETE /api/programs/:id`, `POST /api/programs`
-- Professor: `GET|POST /api/admin/users`, `PATCH /api/admin/users/:id`,
-  `GET /api/admin/users/:id/programs`, `GET /api/admin/programs/:id`
+- Turmas: `GET|POST /api/turmas`, `GET|PATCH|DELETE /api/turmas/:id`, `POST /api/turmas/:id/invite`,
+  `GET /api/turmas/invite/:codigo`, `POST /api/turmas/join`, `DELETE /api/turmas/:id/members/:userId`,
+  `POST /api/turmas/:id/submissions`, `GET /api/turmas/:id/submissions/:sid`
+- Administração: `GET /api/admin/users`, `PATCH /api/admin/users/:id`
 - `POST /api/parse` (apoio; o cliente interpreta localmente)
 
 ## G-code suportado
@@ -62,16 +76,21 @@ API (todas exigem login, exceto `POST /api/auth/login`; alterações só com JSO
 Alarmes simulados: G0 dentro do material, ferramenta na peça com fuso parado,
 colisão com a placa, F ausente, arco inválido, ferramenta inexistente, erro de sintaxe.
 
-Torre de 8 posições: T1 desbaste 80°, T2 acabamento 35°, T3 bedame 3 mm (referência no canto esquerdo),
-T4 rosca externa 60°, T5 broca de centro, T6 broca Ø10, T7 barra de mandrilar, T8 rosca interna.
-T5–T8 ainda não removem material (usinagem interna em desenvolvimento).
+Torre de 8 posições **configurável** (painel "Torre" no simulador): cada posição recebe uma ferramenta
+do catálogo – desbaste 80°, acabamento 55° e 35°, bedame 3 mm, rosca externa e interna 60°, broca de
+centro, brocas Ø6/10/12/16/20 e barra de mandrilar – ou fica vazia. Montagem padrão (usada nos exemplos):
+T1 desbaste 80°, T2 acabamento 35°, T3 bedame, T4 rosca externa, T5 broca de centro, T6 broca Ø16,
+T7 barra de mandrilar, T8 rosca interna.
+
+Usinagem externa, furação (só em X0) e usinagem interna removem material; alarmes de colisão também
+para broca fora do centro e corpo da barra de mandrilar batendo no material.
+
+Exemplos em `programs/`: 01 básico, 02 eixo escalonado, 03 ponta esférica (Fanuc), 04 pino roscado M20,
+05 bucha (furação e mandrilamento), 06 peça completa (usa as 8 ferramentas).
 
 O cabeçalho `; Bruto: D50 x 80 mm, face em Z1` ajusta a peça bruta automaticamente ao abrir o programa.
 
-## Limitações do MVP / próximos passos
+## Limitações e próximos passos
 
-- Sem ciclos (`CYCLE95`, `G71`/`G70` Fanuc), subprogramas, variáveis ou compensação de raio (`G41`/`G42`)
-- Rosca não gera a hélice (só o diâmetro do fundo)
-- Peça é sólido de revolução (sem furação/fresamento com ferramenta acionada)
-- Ideias: tabela de ferramentas editável, ciclos de desbaste, contraponto, medição na vista 2D,
-  exportar o perfil final, editor com destaque de sintaxe (CodeMirror)
+- Limitações conhecidas (com caminho sugerido para cada uma): [docs/LIMITACOES.md](docs/LIMITACOES.md)
+- Plano, decisões e perguntas em aberto: [docs/PLANO.md](docs/PLANO.md)
