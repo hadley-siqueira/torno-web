@@ -94,11 +94,51 @@ Ciclos do **802D sl** (são estes que os alunos usam na máquina):
 
 ## Etapa 3: recursos didáticos
 
-- [ ] **Medição virtual** da peça pronta (paquímetro/micrômetro: clicar e ler diâmetro e comprimento).
-- [ ] **Comparação com o desenho:** o professor define o perfil esperado e as tolerâncias;
-      o sistema compara com a peça usinada.
+**Aguardando confirmação do professor** (pergunta 16) antes de implementar. Detalhes em
+[Plano de medição e conferência da peça](#plano-de-medição-e-conferência-da-peça).
+
+- [ ] **Fase 1 – Medir na peça:** modo "Medir" nas vistas Lateral e Peça pronta; Ø externo e do furo,
+      comprimento entre faces, valor no formato do instrumento.
+- [ ] **Fase 2 – Tabela de cotas** automática da peça pronta.
+- [ ] **Fase 3 – Comparar com o desenho:** cotas esperadas e tolerâncias no exercício; correção automática.
+- [ ] **Fase 4 (opcional) – Desenho em diedro** da peça pronta (1º diedro, ABNT), com cotas.
 - [ ] **Exercícios e avaliação:** enunciado, peça bruta, ferramentas disponíveis e nota automática.
-- [ ] *(A avaliar)* Contas de aluno/professor e entrega de exercícios pelo servidor.
+- [x] Contas e entrega de programas pelo servidor (turmas e entregas, 2026-11-11).
+
+## Plano de medição e conferência da peça
+
+Registrado em 2026-11-11. **Status: proposta, aguardando o professor confirmar** que a conferência de
+medidas após a simulação é feita assim nas aulas e quais instrumentos são usados.
+
+### Contexto (pesquisa)
+
+- Um professor de mecânica (não de CNC) relatou que, depois da simulação, costuma-se **conferir as
+  medidas da peça**, principalmente os comprimentos entre faces, além dos diâmetros. Isso corresponde
+  à inspeção da primeira peça na indústria (paquímetro/micrômetro contra o desenho).
+- **SSCNC:** tem menu de **medição** da peça simulada: clica-se sobre um diâmetro e lê-se o valor;
+  o instrumento muda sozinho (micrômetro para diâmetros pequenos, súbito para furos); também mede
+  pelo teclado ou digitando a posição. Fonte: tutoriais do SSCNC (Scribd).
+- **SinuTrain / SINUMERIK Operate:** não foi encontrado paquímetro virtual na simulação. O que existe
+  é **"Medir peça"** com apalpador e ciclos de medição (preset e controle de processo), outro conceito.
+- **Vistas de diedro:** nem o SinuTrain nem o SSCNC geram desenho técnico em diedro; têm vistas de
+  simulação (lateral, face, meio corte, 3D, duas janelas). Lateral, Face, Meio corte e 3D já existem aqui.
+
+### Fases
+
+| Fase | Entrega | Motivo | Depende de |
+|---|---|---|---|
+| 1. Medir na peça | Modo "Medir" nas vistas Lateral e Peça pronta. Clique num trecho mostra Ø externo e Ø do furo; clique em duas faces mostra o comprimento; o clique "gruda" em faces e cantos. Valor no formato do instrumento (paquímetro 0,02/0,05 mm, micrômetro 0,01 mm, súbito para furos) | É o que o professor descreveu e o que o SSCNC faz | Pergunta 16 (resoluções) |
+| 2. Tabela de cotas | Lista automática da peça pronta: cada diâmetro (Ø, Z inicial, Z final, comprimento), faces, cones, furos | Conferência rápida sem clicar ponto a ponto | — |
+| 3. Comparar com o desenho | No exercício, o professor cadastra cotas esperadas e tolerâncias (ex.: Ø30 ±0,05; 55 ±0,1); o sistema mede a peça entregue e marca verde/vermelho | Correção automática; usa turmas e entregas que já existem | Definir o formato dos exercícios |
+| 4. Desenho em diedro (opcional) | Desenho técnico da peça pronta em 1º diedro: vista frontal com meio corte, vista lateral, cotas automáticas; exportar PDF/SVG | Ensina leitura de desenho; mais trabalhoso | — |
+
+### Notas para a implementação
+
+- O perfil da peça pronta já existe no modelo (`shared/stock-model.js`: `r`, `ri`, `diameterAt`,
+  `boreAt`; peça separada em `Simulator.parts`). A medição e a tabela de cotas podem ser funções puras
+  em `shared/`, testadas no Node como as cotas dos exemplos (`test/unit/examples.test.js`).
+- Ao mostrar valores, considerar a resolução da simulação (~0,035 mm; até ~0,1 mm em perfis muito
+  inclinados – ver LIMITACOES.md) para não exibir casas decimais enganosas.
 
 ## Estudo de viabilidade: perfis de interface
 
@@ -264,5 +304,6 @@ Nenhuma bloqueia o trabalho atual; as suposições acima cobrem as lacunas.
 | 8 | O que são as duas manivelas do painel da porta? | Como simular JOG/manivela |
 | 9 | Professor que opera a máquina: como os alunos fazem o preset das ferramentas e o zero da peça? | Fluxo de operação a simular |
 | 11 | O aluno usa rotação fixa (`G97 S…`) ou velocidade de corte constante (`G96`)? | Padrão dos exemplos e exercícios |
+| 16 | Confirmar com o professor: a conferência de medidas após a simulação é feita assim (diâmetros e comprimentos entre faces)? Quais instrumentos os alunos usam (paquímetro 0,02 ou 0,05 mm, micrômetro 0,01 mm, súbito)? Querem desenho em diedro? | Libera o [plano de medição](#plano-de-medição-e-conferência-da-peça) e define as resoluções |
 | 15 | Capturas de tela do **SinuTrain do professor** (é no PC, não depende da máquina): a tela de criar máquina, mostrando os tipos de comando disponíveis, e algumas telas de uso | Saber se os alunos veem 802D sl ou Operate; serve de referência visual enquanto a máquina está parada |
 | 14 | O perfil "Máquina" deve imitar o **802D sl** (máquina real) ou a interface do **SinuTrain/Operate** (o que os alunos usam agora)? | Define o alvo do protótipo de interface |
