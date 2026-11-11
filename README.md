@@ -133,3 +133,8 @@ O cabeçalho `; Bruto: D50 x 80 mm, face em Z1` ajusta a peça bruta automaticam
 
 - Limitações conhecidas (com caminho sugerido para cada uma): [docs/LIMITACOES.md](docs/LIMITACOES.md)
 - Plano, decisões e perguntas em aberto: [docs/PLANO.md](docs/PLANO.md)
+
+## Licença
+
+[MIT](LICENSE): pode usar, copiar, modificar e distribuir para qualquer fim, inclusive comercial,
+desde que mantenha o aviso de copyright e o texto da licença. Sem garantias.
