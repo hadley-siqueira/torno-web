@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Torno CNC Web</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Ccircle cx=%228%22 cy=%228%22 r=%226%22 fill=%22%2319a7c9%22/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="/css/style.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "/vendor/three/build/three.module.js",
+        "three/addons/": "/vendor/three/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="logo">⟳</span> Torno CNC <small>simulador web · MVP</small></div>
+    <div class="prog">
+      <select id="programSelect" title="Programas de exemplo"></select>
+      <button id="btnLoad" class="btn">Abrir</button>
+      <button id="btnSave" class="btn">Salvar…</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="left">
+      <div class="panel-title">
+        <span>Programa <span id="progName" class="muted"></span></span>
+        <span id="cursorPos" class="muted"></span>
+      </div>
+      <div class="editor">
+        <div class="gutter" id="gutter"></div>
+        <div class="code-wrap">
+          <div class="hl" id="hl"></div>
+          <textarea id="code" spellcheck="false" autocomplete="off" autocapitalize="off" wrap="off"></textarea>
+        </div>
+      </div>
+
+      <details class="settings" open>
+        <summary>Peça bruta</summary>
+        <div class="grid">
+          <label>Diâmetro (mm)<input id="stockD" type="number" min="5" max="200" step="1" value="50" /></label>
+          <label>Comprimento fora da placa (mm)<input id="stockL" type="number" min="10" max="300" step="1" value="80" /></label>
+          <label>Face bruta em Z (mm)<input id="stockF" type="number" min="0" max="10" step="0.5" value="1" /></label>
+          <button id="btnApplyStock" class="btn">Aplicar</button>
+        </div>
+      </details>
+
+      <div class="messages" id="messages"></div>
+    </section>
+
+    <section class="right">
+      <div class="viewport" id="viewport">
+        <div class="dro">
+          <div class="dro-row"><span class="ax">X</span><span id="droX" class="val">0.000</span><span class="unit">Ø mm</span></div>
+          <div class="dro-row"><span class="ax">Z</span><span id="droZ" class="val">0.000</span><span class="unit">mm</span></div>
+          <div class="dro-sep"></div>
+          <div class="dro-small">
+            <div><b>S</b> <span id="droS">0</span> rpm <span id="droDir" class="dir"></span></div>
+            <div><b>F</b> <span id="droF">0</span> <span id="droFu">mm/rot</span></div>
+            <div><b>T</b> <span id="droT">1</span> <span id="droTn" class="muted"></span></div>
+            <div><b>G</b> <span id="droG">G0</span> · <span id="droMode"></span></div>
+          </div>
+        </div>
+        <div class="status" id="status">
+          <span id="statusState" class="pill">RESET</span>
+          <span id="statusTime">0:00 / 0:00</span>
+        </div>
+        <div class="block" id="currentBlock"></div>
+        <div class="alarm hidden" id="alarm"></div>
+        <div class="views">
+          <button data-view="iso" class="btn sm">Iso</button>
+          <button data-view="front" class="btn sm">Frente</button>
+          <button data-view="top" class="btn sm">Topo</button>
+          <label class="chk"><input type="checkbox" id="chkPath" checked /> Trajetória</label>
+          <label class="chk"><input type="checkbox" id="chkSection" /> Meio corte</label>
+        </div>
+        <div class="legend">
+          <span><i style="background:#ffa63d"></i>G0 rápido</span>
+          <span><i style="background:#2fe0a0"></i>G1/G2/G3 avanço</span>
+        </div>
+      </div>
+
+      <div class="softkeys">
+        <button id="btnStart" class="sk start" title="Cycle Start (Ctrl+Enter no editor)">▶ Cycle Start</button>
+        <button id="btnHold" class="sk">⏸ Feed Hold</button>
+        <button id="btnReset" class="sk reset">■ Reset</button>
+        <button id="btnSingle" class="sk toggle" title="Bloco a bloco">⏭ Bloco a bloco</button>
+        <button id="btnFinish" class="sk" title="Executa até o fim sem animação">⏩ Até o fim</button>
+        <div class="speed">
+          <span>Velocidade</span>
+          <input id="speed" type="range" min="0" max="8" step="1" value="3" />
+          <b id="speedVal">5×</b>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>

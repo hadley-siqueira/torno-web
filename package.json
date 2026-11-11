@@ -1,0 +1,17 @@
+{
+  "name": "torno-cnc-web",
+  "version": "0.1.0",
+  "description": "Simulador web simples de torno CNC (G-code) com Three.js/WebGL",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "express": "^5.3.0",
+    "three": "^0.187.0"
+  }
+}

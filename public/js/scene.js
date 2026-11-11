@@ -1,0 +1,369 @@
+// Cena 3D do torno: placa, peça, ferramenta, trajetória, cavacos.
+// Eixos: X da cena = Z da máquina (eixo do fuso), Y da cena = X da máquina (raio).
+
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { Stock } from './stock.js';
+import { TOOLS } from '/shared/tools.js';
+
+const PATH_COLORS = {
+  rapid: new THREE.Color(0xffa63d),
+  feed: new THREE.Color(0x2fe0a0),
+  thread: new THREE.Color(0xe060ff),
+};
+
+export class LatheScene {
+  constructor(container) {
+    this.container = container;
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.localClippingEnabled = true;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
+    container.appendChild(renderer.domElement);
+    this.renderer = renderer;
+
+    this.scene = new THREE.Scene();
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+    this.camera = new THREE.PerspectiveCamera(35, 1, 1, 5000);
+    this.controls = new OrbitControls(this.camera, renderer.domElement);
+    this.controls.enableDamping = true;
+    this.controls.dampingFactor = 0.12;
+
+    this.scene.add(new THREE.HemisphereLight(0xdfe8f5, 0x30353c, 0.6));
+    const sun = new THREE.DirectionalLight(0xffffff, 1.4);
+    sun.position.set(80, 200, 160);
+    this.scene.add(sun);
+
+    this.spindleGroup = new THREE.Group(); // gira com o fuso
+    this.machineGroup = new THREE.Group(); // estático
+    this.scene.add(this.spindleGroup, this.machineGroup);
+
+    this.clipPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), 0);
+    this.spindleAngle = 0;
+    this.falling = [];
+
+    this.buildTool();
+    this.buildChips();
+
+    new ResizeObserver(() => this.resize()).observe(container);
+    this.resize();
+  }
+
+  resize() {
+    const w = this.container.clientWidth || 1;
+    const h = this.container.clientHeight || 1;
+    this.renderer.setSize(w, h, false);
+    this.renderer.domElement.style.width = '100%';
+    this.renderer.domElement.style.height = '100%';
+    this.camera.aspect = w / h;
+    this.camera.updateProjectionMatrix();
+  }
+
+  // ---------- Peça e placa ----------
+  setStock(params) {
+    if (this.stock) {
+      this.spindleGroup.remove(this.stock.mesh);
+      this.scene.remove(this.stock.section);
+      this.stock.dispose();
+    }
+    this.clearFalling();
+    this.stock = new Stock(params);
+    this.spindleGroup.add(this.stock.mesh);
+    this.scene.add(this.stock.section);
+    this.buildMachine();
+    this.setSection(this.sectionOn);
+    return this.stock;
+  }
+
+  buildMachine() {
+    for (const g of [this.machineGroup, this.chuckGroup]) {
+      if (!g) continue;
+      g.traverse((o) => o.geometry && o.geometry.dispose());
+      g.clear();
+    }
+    if (this.chuckGroup) this.spindleGroup.remove(this.chuckGroup);
+
+    const s = this.stock;
+    const R = s.R0;
+    const zJawFront = s.zLeft;
+    const zJawBack = s.zLeft - s.clamp;
+    const bodyR = Math.max(70, R + 45);
+    const bodyLen = 55;
+    this.chuckInfo = { zFront: zJawFront, jawOuter: R + 16, bodyR };
+
+    const steel = new THREE.MeshStandardMaterial({ color: 0x9aa3ad, metalness: 0.8, roughness: 0.35 });
+    const dark = new THREE.MeshStandardMaterial({ color: 0x3a4048, metalness: 0.5, roughness: 0.55 });
+    const jawMat = new THREE.MeshStandardMaterial({ color: 0x7c858f, metalness: 0.85, roughness: 0.3 });
+    const paint = new THREE.MeshStandardMaterial({ color: 0xc9ced4, metalness: 0.1, roughness: 0.6 });
+
+    // Placa de 3 castanhas (gira)
+    const chuck = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(bodyR, bodyR, bodyLen, 64), steel);
+    body.rotation.z = Math.PI / 2;
+    body.position.x = zJawBack - bodyLen / 2;
+    chuck.add(body);
+    for (let k = 0; k < 3; k++) {
+      const jaw = new THREE.Group();
+      const grip = new THREE.Mesh(new THREE.BoxGeometry(s.clamp, 16, 16), jawMat);
+      grip.position.set(zJawBack + s.clamp / 2, R + 8, 0);
+      const base = new THREE.Mesh(new THREE.BoxGeometry(s.clamp * 0.6, bodyR - R - 22, 20), jawMat);
+      base.position.set(zJawBack + s.clamp * 0.3, R + 16 + (bodyR - R - 22) / 2, 0);
+      jaw.add(grip, base);
+      jaw.rotation.x = (k * Math.PI * 2) / 3;
+      chuck.add(jaw);
+    }
+    // marca colorida para enxergar a rotação
+    const mark = new THREE.Mesh(new THREE.BoxGeometry(2, 14, 8), new THREE.MeshStandardMaterial({ color: 0xff5a36 }));
+    mark.position.set(zJawBack + 0.6, bodyR - 10, 0);
+    chuck.add(mark);
+    this.chuckGroup = chuck;
+    this.spindleGroup.add(chuck);
+
+    // Cabeçote e barramento (fixos)
+    const headLen = 140;
+    const head = new THREE.Mesh(new THREE.BoxGeometry(headLen, bodyR * 2 + 80, bodyR * 2 + 60), paint);
+    head.position.x = zJawBack - bodyLen - 8 - headLen / 2;
+    const nose = new THREE.Mesh(new THREE.CylinderGeometry(bodyR * 0.7, bodyR * 0.8, 10, 48), dark);
+    nose.rotation.z = Math.PI / 2;
+    nose.position.x = zJawBack - bodyLen - 4;
+    const bedY = -(bodyR + 40);
+    const bedLen = s.length + 600;
+    const bed = new THREE.Mesh(new THREE.BoxGeometry(bedLen, 30, bodyR * 2 + 60), dark);
+    bed.position.set(zJawBack - bodyLen + bedLen / 2 - 150, bedY - 15, 0);
+    const tray = new THREE.Mesh(new THREE.BoxGeometry(bedLen, 4, bodyR * 2 + 120), new THREE.MeshStandardMaterial({ color: 0x23272d, roughness: 0.9 }));
+    tray.position.set(bed.position.x, bedY - 34, 0);
+    this.bedY = bedY;
+    this.machineGroup.add(head, nose, bed, tray);
+
+    this.frameView('iso');
+  }
+
+  // ---------- Ferramenta ----------
+  buildTool() {
+    this.toolGroup = new THREE.Group();
+    this.scene.add(this.toolGroup);
+    this.toolMeshes = {};
+    const holderMat = new THREE.MeshStandardMaterial({ color: 0x2c3138, metalness: 0.6, roughness: 0.45 });
+    for (const t of Object.values(TOOLS)) {
+      const g = new THREE.Group();
+      const shape = new THREE.Shape(t.insert.map(([z, x]) => new THREE.Vector2(z, x)));
+      const insGeo = new THREE.ExtrudeGeometry(shape, { depth: 5, bevelEnabled: false });
+      insGeo.translate(0, 0, -2.5);
+      const insMat = new THREE.MeshStandardMaterial({ color: t.color, metalness: 0.7, roughness: 0.3 });
+      const ins = new THREE.Mesh(insGeo, insMat);
+      const h = t.holder;
+      const holder = new THREE.Mesh(new THREE.BoxGeometry(h.z1 - h.z0, h.x1 - h.x0, 22), holderMat);
+      holder.position.set((h.z0 + h.z1) / 2, (h.x0 + h.x1) / 2, -2);
+      g.add(ins, holder);
+      g.userData.insertMat = insMat;
+      g.visible = false;
+      this.toolGroup.add(g);
+      this.toolMeshes[t.id] = g;
+    }
+    // Torre/carro porta-ferramenta
+    const turret = new THREE.Mesh(
+      new THREE.BoxGeometry(50, 30, 50),
+      new THREE.MeshStandardMaterial({ color: 0x8a939e, metalness: 0.4, roughness: 0.5 })
+    );
+    turret.position.set(12, 90, -2);
+    this.toolGroup.add(turret);
+  }
+
+  setTool(id) {
+    for (const [k, g] of Object.entries(this.toolMeshes)) g.visible = Number(k) === id;
+    this.toolId = id;
+  }
+
+  setToolPos(z, r) {
+    this.toolGroup.position.set(z, r, 0);
+  }
+
+  setToolAlarm(on) {
+    for (const g of Object.values(this.toolMeshes)) g.userData.insertMat.emissive.setHex(on ? 0xaa0000 : 0x000000);
+  }
+
+  // ---------- Trajetória ----------
+  setPath(events) {
+    if (this.pathPreview) {
+      this.scene.remove(this.pathPreview, this.pathDone);
+      this.pathPreview.geometry.dispose();
+      this.pathDone.geometry.dispose();
+    }
+    const pos = [];
+    const col = [];
+    this.segStart = new Int32Array(events.length + 1);
+    let seg = 0;
+    events.forEach((ev, i) => {
+      this.segStart[i] = seg;
+      if (!ev.pts) return;
+      const c = PATH_COLORS[ev.type] || PATH_COLORS.feed;
+      for (let k = 1; k < ev.pts.length; k++) {
+        const a = ev.pts[k - 1];
+        const b = ev.pts[k];
+        pos.push(a[0], a[1], 0, b[0], b[1], 0);
+        col.push(c.r, c.g, c.b, c.r, c.g, c.b);
+        seg++;
+      }
+    });
+    this.segStart[events.length] = seg;
+    const posAttr = new THREE.Float32BufferAttribute(pos, 3);
+    const colAttr = new THREE.Float32BufferAttribute(col, 3);
+    const mk = (opacity) => {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', posAttr);
+      g.setAttribute('color', colAttr);
+      const l = new THREE.LineSegments(
+        g,
+        new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity, depthTest: false })
+      );
+      l.renderOrder = 10;
+      l.frustumCulled = false;
+      return l;
+    };
+    this.pathPreview = mk(0.22);
+    this.pathDone = mk(1);
+    this.pathDone.geometry.setDrawRange(0, 0);
+    this.scene.add(this.pathPreview, this.pathDone);
+    this.setShowPath(this.showPath ?? true);
+  }
+
+  setProgress(evIdx, segInEvent) {
+    if (!this.pathDone) return;
+    const s = this.segStart[Math.min(evIdx, this.segStart.length - 1)] + segInEvent;
+    this.pathDone.geometry.setDrawRange(0, s * 2);
+  }
+
+  setShowPath(on) {
+    this.showPath = on;
+    if (this.pathPreview) {
+      this.pathPreview.visible = on;
+      this.pathDone.visible = on;
+    }
+  }
+
+  setSection(on) {
+    this.sectionOn = !!on;
+    if (!this.stock) return;
+    this.stock.material.clippingPlanes = on ? [this.clipPlane] : [];
+    this.stock.material.needsUpdate = true;
+    this.stock.section.visible = !!on;
+  }
+
+  // ---------- Cavacos ----------
+  buildChips() {
+    const N = 700;
+    this.chipPos = new Float32Array(N * 3).fill(-1e5);
+    this.chipVel = new Float32Array(N * 3);
+    this.chipLife = new Float32Array(N);
+    this.chipNext = 0;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(this.chipPos, 3).setUsage(THREE.DynamicDrawUsage));
+    this.chips = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xffc070, size: 1.4, sizeAttenuation: true }));
+    this.chips.frustumCulled = false;
+    this.scene.add(this.chips);
+  }
+
+  spawnChips(z, r, count) {
+    const N = this.chipLife.length;
+    for (let c = 0; c < count; c++) {
+      const i = this.chipNext;
+      this.chipNext = (i + 1) % N;
+      this.chipPos[i * 3] = z + Math.random() * 2;
+      this.chipPos[i * 3 + 1] = r;
+      this.chipPos[i * 3 + 2] = (Math.random() - 0.5) * 2;
+      this.chipVel[i * 3] = 20 + Math.random() * 60;
+      this.chipVel[i * 3 + 1] = 30 + Math.random() * 80;
+      this.chipVel[i * 3 + 2] = (Math.random() - 0.2) * 90;
+      this.chipLife[i] = 0.6 + Math.random() * 0.8;
+    }
+  }
+
+  updateChips(dt) {
+    const p = this.chipPos;
+    const v = this.chipVel;
+    let any = false;
+    for (let i = 0; i < this.chipLife.length; i++) {
+      if (this.chipLife[i] <= 0) continue;
+      any = true;
+      this.chipLife[i] -= dt;
+      v[i * 3 + 1] -= 400 * dt;
+      p[i * 3] += v[i * 3] * dt;
+      p[i * 3 + 1] += v[i * 3 + 1] * dt;
+      p[i * 3 + 2] += v[i * 3 + 2] * dt;
+      if (this.chipLife[i] <= 0 || p[i * 3 + 1] < this.bedY) {
+        this.chipLife[i] = 0;
+        p[i * 3 + 1] = -1e5;
+      }
+    }
+    if (any || this.chipsWereActive) this.chips.geometry.attributes.position.needsUpdate = true;
+    this.chipsWereActive = any;
+  }
+
+  // ---------- Peça cortada caindo ----------
+  dropPart(mesh) {
+    mesh.userData.vel = new THREE.Vector3(5, 0, 25);
+    mesh.userData.spin = (Math.random() - 0.5) * 2;
+    mesh.userData.life = 4;
+    this.scene.add(mesh);
+    this.falling.push(mesh);
+  }
+
+  updateFalling(dt) {
+    for (const m of this.falling) {
+      const v = m.userData.vel;
+      m.userData.life -= dt;
+      const floor = (this.bedY ?? -100) - 30;
+      if (m.position.y > floor + 8) {
+        v.y -= 600 * dt;
+        m.position.addScaledVector(v, dt);
+        m.rotation.z += m.userData.spin * dt;
+      } else {
+        m.position.y = floor + 8;
+      }
+    }
+  }
+
+  clearFalling() {
+    for (const m of this.falling) {
+      this.scene.remove(m);
+      m.geometry.dispose();
+    }
+    this.falling = [];
+  }
+
+  // ---------- Fuso ----------
+  updateSpindle(rpm, dir, dt) {
+    if (!dir || rpm <= 0) return;
+    const omega = Math.min((rpm / 60) * Math.PI * 2, 22); // limitado p/ não "piscar"
+    this.spindleAngle += (dir === 4 ? -1 : 1) * omega * dt;
+    this.spindleGroup.rotation.x = this.spindleAngle;
+  }
+
+  // ---------- Câmera ----------
+  frameView(name) {
+    if (!this.stock) return;
+    const s = this.stock;
+    const target = new THREE.Vector3((s.zLeft + s.faceZ) / 2 + 35, 25, 0);
+    const dist = Math.max(s.length + 160, s.R0 * 4 + 200) * 1.45;
+    const dir = {
+      iso: new THREE.Vector3(0.35, 0.4, 1),
+      front: new THREE.Vector3(0, 0, 1),
+      top: new THREE.Vector3(0, 1, 0.0001),
+    }[name] || new THREE.Vector3(0.45, 0.55, 1);
+    this.camera.position.copy(target).addScaledVector(dir.normalize(), dist);
+    this.controls.target.copy(target);
+    this.controls.update();
+  }
+
+  render(dt) {
+    this.updateChips(dt);
+    this.updateFalling(dt);
+    if (this.stock) this.stock.updateGeometry();
+    this.controls.update();
+    this.renderer.render(this.scene, this.camera);
+  }
+}

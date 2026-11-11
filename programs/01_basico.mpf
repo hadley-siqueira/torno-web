@@ -1,0 +1,20 @@
+; PROGRAMA BASICO - primeiro contato
+; Bruto: D50 x 80 mm, face em Z1
+; X em diametro, Z = 0 na face da peca
+G18 G90 G95 DIAMON
+T1 D1                 ; ferramenta de desbaste
+G97 S1200 M3          ; 1200 rpm, sentido horario
+G0 X55 Z0             ; aproxima rapido
+G1 X-1.6 F0.15        ; faceamento ate o centro
+G0 Z2
+G0 X44
+G1 Z-40 F0.25         ; torneia D44
+G1 X52
+G0 Z2
+G0 X40
+G1 Z-20               ; torneia D40
+G1 X46 Z-23           ; chanfro conico
+G1 X52
+G0 X150 Z100          ; volta para a troca
+M5
+M30
