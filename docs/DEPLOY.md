@@ -12,6 +12,13 @@ Publica a **última versão commitada** (`git HEAD`), via `git archive`. Mudanç
 pasta local não vão para o VPS. Assim dá para publicar enquanto alguém edita o código. Para usar
 outro host ou porta: `HOST=outro PORT=8080 scripts/deploy.sh`.
 
+O servidor real fica num arquivo local **`.deploy.env`** na raiz do projeto, que não vai para o git:
+
+```sh
+HOST=meu-vps   # alias do ~/.ssh/config (lá ficam IP, porta SSH e usuário)
+PORT=9000
+```
+
 ## Onde fica no VPS
 
 | Item | Valor |

@@ -3,16 +3,22 @@
 # Mudanças não commitadas na pasta local NÃO vão para o VPS.
 # O banco (data/) e o log do VPS são preservados. Detalhes em docs/DEPLOY.md.
 #
-# Uso: scripts/deploy.sh            (padrão: host meu-vps, porta 9000)
+# Uso: scripts/deploy.sh            (lê HOST e PORT de .deploy.env, se existir)
 #      HOST=outro PORT=8080 scripts/deploy.sh
+#
+# .deploy.env fica fora do git (ver .gitignore). Exemplo:
+#   HOST=meu-vps   # alias do ~/.ssh/config
+#   PORT=9000
 set -eu
 
-HOST="${HOST:-meu-vps}"   # alias do ~/.ssh/config
-PORT="${PORT:-9000}"
+cd "$(dirname "$0")/.."
+# HOST/PORT passados na linha de comando têm prioridade sobre o .deploy.env
+CLI_HOST="${HOST:-}"; CLI_PORT="${PORT:-}"
+if [ -f .deploy.env ]; then . ./.deploy.env; fi
+HOST="${CLI_HOST:-${HOST:-meu-vps}}"   # alias do ~/.ssh/config
+PORT="${CLI_PORT:-${PORT:-9000}}"
 DIR=torno-cnc                  # pasta em ~ no VPS
 SESSION=torno-cnc              # sessão tmux
-
-cd "$(dirname "$0")/.."
 
 if [ -n "$(git status --porcelain)" ]; then
   echo "Aviso: há mudanças não commitadas; elas NÃO serão publicadas."
