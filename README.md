@@ -1,6 +1,6 @@
-# Torno CNC Web (MVP)
+# TornoWeb
 
-Simulador simples de torno CNC no navegador, inspirado no SinuTrain: você escreve
+Simulador de torno CNC no navegador, inspirado no SinuTrain: você escreve
 G-code, aperta **Cycle Start** e vê a ferramenta usinando a peça em 3D (Three.js/WebGL).
 
 ```bash

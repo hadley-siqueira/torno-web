@@ -1,5 +1,5 @@
 {
-  "name": "torno-cnc-web",
+  "name": "tornoweb",
   "version": "0.1.0",
   "description": "Simulador web simples de torno CNC (G-code) com Three.js/WebGL",
   "type": "module",

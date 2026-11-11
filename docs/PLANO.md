@@ -1,4 +1,4 @@
-# Plano do simulador de torno CNC
+# Plano do TornoWeb (simulador de torno CNC)
 
 Limitações conhecidas da versão atual: [LIMITACOES.md](LIMITACOES.md).
 
