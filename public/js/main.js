@@ -2,9 +2,10 @@ import * as THREE from 'three';
 import { LatheScene } from './scene.js';
 import { api, ApiError } from './api.js';
 import { applyI18n, guessLang, rememberLang } from './i18n-dom.js';
-import { parseProgram } from '/shared/gcode.js';
+import { parseProgram, stockFromHeader } from '/shared/gcode.js';
 import { t, formatMessage, apiErrorText, LANGS } from '/shared/i18n.js';
 import { TOOL_TYPES, TOOL_SLOTS, TURRET_DEFAULT, buildTurret, sanitizeTurret, toolName } from '/shared/tools.js';
+import { Simulator } from '/shared/simulator.js';
 
 const $ = (id) => document.getElementById(id);
 const SPEEDS = [0.5, 1, 2, 5, 10, 20, 50, 100, 200];
@@ -27,27 +28,39 @@ const app = {
   turret: buildTurret(TURRET_DEFAULT),
 };
 
-const sim = {
+// Estado só da interface; o estado da máquina fica no Simulator (shared/simulator.js)
+const ui = {
   result: null,
-  events: [],
-  idx: 0,
-  t: 0,
-  k: 0, // segmento atual dentro do evento
-  startedIdx: -1,
-  status: 'reset',
-  pos: { z: 100, r: 75 },
   home: { x: 150, z: 100 },
-  tool: 1,
-  state: null,
-  rpm: 0,
-  dir: 0,
-  elapsed: 0,
-  single: false,
   turbo: false,
-  chipAcc: 0,
   speed: SPEEDS[3],
   lines: [],
+  alarmInfo: null,
 };
+
+const partMaterial = new THREE.MeshStandardMaterial({ color: 0xd8dce2, metalness: 0.75, roughness: 0.32 });
+
+const sim = new Simulator({
+  stock: null,
+  turret: app.turret,
+  home: ui.home,
+  hooks: {
+    status: (s) => setStatus(s),
+    eventStart: (ev) => highlightLine(ev.line),
+    toolChange: (id, ev) => {
+      scene.setTool(id);
+      msgCode(ev, 'info', ev.line);
+    },
+    pause: (ev) => msgCode(ev, 'info', ev.line),
+    alarm: (a) => raiseAlarm(a),
+    end: (ev, elapsed) => msgKey('S_END_TIME', { time: fmtTime(elapsed) }, 'ok', ev.line),
+    parted: (part, line) => {
+      scene.dropPart(scene.stock.partMesh(part, partMaterial));
+      msgKey('S_PARTED', {}, 'ok', line);
+    },
+    singleStop: (line) => highlightLine(line),
+  },
+});
 
 const tr = (key, params) => t(app.lang, key, params);
 
@@ -112,7 +125,7 @@ function setLang(lang) {
   renderProgramSelect();
   updateDocTitle();
   rerenderMessages();
-  if (sim.alarmInfo) showAlarmBox(sim.alarmInfo);
+  if (ui.alarmInfo) showAlarmBox(ui.alarmInfo);
 }
 
 // ---------------------------------------------------------------- configurações do usuário
@@ -165,7 +178,7 @@ function highlightLine(line, alarm = false) {
     const top = line * LH;
     const h = ta.clientHeight;
     if (top < ta.scrollTop + LH || top > ta.scrollTop + h - 3 * LH) ta.scrollTop = Math.max(0, top - h / 3);
-    $('currentBlock').textContent = (sim.lines[line] || '').trim();
+    $('currentBlock').textContent = (ui.lines[line] || '').trim();
   } else $('currentBlock').textContent = '';
   syncScroll();
 }
@@ -237,7 +250,7 @@ function setDocument(doc, code) {
   updateGutter();
   updateDocTitle();
   saveDraft();
-  if (stockFromHeader(code)) applyStock();
+  if (stockFromHeaderInputs(code)) applyStock();
   else doReset();
 }
 
@@ -392,6 +405,7 @@ function applyTurret(cfg, save = true) {
   app.turretCfg = sanitizeTurret(cfg);
   app.turret = buildTurret(app.turretCfg);
   scene.setTurret(app.turret);
+  sim.setTurret(app.turret);
   if (save) saveSettings({ turret: app.turretCfg });
   renderToolList();
   doReset();
@@ -421,38 +435,38 @@ function setStockInputs(s) {
 function applyStock() {
   const p = stockParams();
   scene.setStock(p);
-  sim.home = { x: Math.max(150, p.diameter + 40), z: 100 };
+  ui.home = { x: Math.max(150, p.diameter + 40), z: 100 };
+  sim.home = ui.home;
+  sim.setStock(scene.stock);
   saveSettings({ stock: p });
   doReset();
 }
 
-// Lê "BRUTO: D50 x 80" (ou "STOCK: D50 x 80") e "FACE EM Z1" do cabeçalho do programa
-function stockFromHeader(code) {
-  const m = code.match(/(?:BRUTO|STOCK)[:\s]*D\s*(\d+(?:\.\d+)?)\s*[xX]\s*(\d+(?:\.\d+)?)/i);
-  if (!m) return false;
-  $('stockD').value = m[1];
-  $('stockL').value = m[2];
-  const f = code.match(/(?:FACE\s+(?:BRUTA\s+)?EM|RAW\s+FACE\s+AT)\s+Z\s*(\d+(?:\.\d+)?)/i);
-  if (f) $('stockF').value = f[1];
+// Ajusta os campos da peça bruta conforme o cabeçalho do programa (ver stockFromHeader)
+function stockFromHeaderInputs(code) {
+  const st = stockFromHeader(code);
+  if (!st) return false;
+  $('stockD').value = st.diameter;
+  $('stockL').value = st.length;
+  if (st.faceZ !== undefined) $('stockF').value = st.faceZ;
   return true;
 }
 
 // ---------------------------------------------------------------- controle
 function setStatus(s) {
-  sim.status = s;
   const pill = $('statusState');
   pill.textContent = tr(`st_${s}`);
   pill.className = `pill ${s === 'reset' ? '' : s}`;
   ta.readOnly = s === 'run' || s === 'hold';
+  if (s !== 'run') ui.turbo = false;
 }
 
 function prepare() {
   clearMessages();
   lineMarks = new Map();
-  const res = parseProgram(ta.value, { home: sim.home, dialect: app.settings.dialect || 'sinumerik', turret: app.turret });
-  sim.result = res;
-  sim.events = res.events;
-  sim.lines = ta.value.split('\n');
+  const res = parseProgram(ta.value, { home: ui.home, dialect: app.settings.dialect || 'sinumerik', turret: app.turret });
+  ui.result = res;
+  ui.lines = ta.value.split('\n');
 
   for (const w of res.warnings) {
     lineMarks.set(w.line, { cls: 'warn', fmt: () => formatMessage(app.lang, w) });
@@ -470,23 +484,13 @@ function prepare() {
     'ok'
   );
   updateGutter();
-  scene.setPath(sim.events);
+  scene.setPath(res.events);
+  sim.load(res.events);
 }
 
-function rewind() {
-  sim.idx = 0;
-  sim.t = 0;
-  sim.k = 0;
-  sim.startedIdx = -1;
-  sim.elapsed = 0;
-  sim.pos = { z: sim.home.z, r: sim.home.x / 2 };
-  sim.tool = app.turret[1] ? 1 : Number(Object.keys(app.turret)[0] || 1);
-  sim.state = null;
-  sim.rpm = 0;
-  sim.dir = 0;
-  sim.turbo = false;
-  sim.alarmInfo = null;
-  scene.stock.reset();
+// Volta a cena ao estado inicial (o Simulator já foi rebobinado)
+function resetScene() {
+  ui.alarmInfo = null;
   scene.clearFalling();
   scene.setTool(sim.tool);
   scene.setToolPos(sim.pos.z, sim.pos.r);
@@ -498,33 +502,27 @@ function rewind() {
 
 function cycleStart(turbo = false) {
   if (sim.status === 'run') {
-    if (turbo) sim.turbo = true;
+    if (turbo) ui.turbo = true;
     return;
   }
-  if (sim.status === 'hold') {
-    sim.turbo = turbo;
-    setStatus('run');
-    return;
+  if (sim.status !== 'hold') {
+    // reset / fim / alarme -> reinicia o programa
+    prepare();
+    resetScene();
   }
-  // reset / fim / alarme -> reinicia o programa
-  prepare();
-  rewind();
-  sim.turbo = turbo;
-  setStatus('run');
+  sim.run();
+  ui.turbo = turbo;
 }
 
 function feedHold() {
-  if (sim.status === 'run') {
-    sim.turbo = false;
-    setStatus('hold');
-  }
+  sim.hold();
 }
 
 function doReset() {
   if (!scene.stock) return;
-  rewind();
-  setStatus('reset');
-  if (sim.result) scene.setPath(sim.events);
+  sim.rewind();
+  resetScene();
+  if (ui.result) scene.setPath(ui.result.events);
 }
 
 function showAlarmBox(info) {
@@ -533,167 +531,17 @@ function showAlarmBox(info) {
   box.classList.remove('hidden');
 }
 
-// fmt: função que devolve o texto do alarme no idioma atual
-function raiseAlarm(fmt, line) {
-  setStatus('alarm');
-  sim.turbo = false;
-  sim.alarmInfo = { fmt, line };
+// a = { code, params, line } vindo do Simulator (colisões) ou do interpretador
+function raiseAlarm(a) {
+  const fmt = () => formatMessage(app.lang, a);
+  ui.alarmInfo = { fmt, line: a.line };
   scene.setToolAlarm(true);
-  showAlarmBox(sim.alarmInfo);
-  lineMarks.set(line, { cls: 'err', fmt });
+  scene.setToolPos(sim.pos.z, sim.pos.r);
+  showAlarmBox(ui.alarmInfo);
+  lineMarks.set(a.line, { cls: 'err', fmt });
   updateGutter();
-  highlightLine(line, true);
-  message(fmt, 'err', line);
-}
-
-// ---------------------------------------------------------------- simulação
-function rpmFor(state, r) {
-  if (!state || !state.spindle) return 0;
-  if (state.css) return Math.min(state.lims, 4000, (state.Vc * 1000) / (Math.PI * Math.max(2 * Math.abs(r), 0.01)));
-  return Math.min(state.S, 4000);
-}
-
-function onEventStart(ev) {
-  sim.state = ev.state;
-  sim.dir = ev.state.spindle;
-  highlightLine(ev.line);
-  switch (ev.type) {
-    case 'toolchange':
-      sim.tool = ev.state.tool;
-      scene.setTool(sim.tool);
-      msgCode(ev, 'info', ev.line);
-      break;
-    case 'pause':
-      msgCode(ev, 'info', ev.line);
-      setStatus('hold');
-      return 'consumed';
-    case 'alarm':
-      raiseAlarm(() => formatMessage(app.lang, ev), ev.line);
-      return 'stop';
-    case 'end': {
-      setStatus('end');
-      const time = fmtTime(sim.elapsed);
-      msgKey('S_END_TIME', { time }, 'ok', ev.line);
-      return 'consumed';
-    }
-  }
-  return null;
-}
-
-const partMaterial = new THREE.MeshStandardMaterial({ color: 0xd8dce2, metalness: 0.75, roughness: 0.32 });
-
-function carveSegment(z0, r0, z1, r1, type, line) {
-  const stock = scene.stock;
-  const tool = app.turret[sim.tool];
-  const ch = scene.chuckInfo;
-  // colisão com a placa (castanhas)
-  if (Math.min(z0, z1) < ch.zFront && Math.min(r0, r1) < ch.jawOuter) {
-    raiseAlarm(() => tr('A_CHUCK'), line);
-    return false;
-  }
-  if (!tool) return true;
-  if (tool.kind === 'external' && r0 >= stock.R0 && r1 >= stock.R0) return true;
-  const L = Math.hypot(z1 - z0, r1 - r0);
-  const n = Math.max(1, Math.ceil(L / (stock.h * 0.7)));
-  for (let i = 1; i <= n; i++) {
-    const f = i / n;
-    const z = z0 + (z1 - z0) * f;
-    const r = r0 + (r1 - r0) * f;
-    const res = stock.carve(tool, z, r);
-    if (res.collision || res.offCenter) {
-      sim.pos = { z, r };
-      raiseAlarm(() => tr(res.collision ? 'A_BAR' : 'A_DRILL_CENTER'), line);
-      return false;
-    }
-    if (res.removed > 0) {
-      if (type === 'rapid' && res.removed > 0.05) {
-        sim.pos = { z, r };
-        raiseAlarm(() => tr('A_RAPID'), line);
-        return false;
-      }
-      if (sim.rpm <= 0) {
-        sim.pos = { z, r };
-        raiseAlarm(() => tr('A_SPINDLE'), line);
-        return false;
-      }
-      sim.chipAcc += res.removed;
-    }
-    if (res.parted >= 0) {
-      scene.dropPart(stock.detach(res.parted, partMaterial));
-      msgKey('S_PARTED', {}, 'ok', line);
-    }
-  }
-  return true;
-}
-
-// Move a ferramenta ao longo do evento até o tempo tb, removendo material
-function moveAlong(ev, tb) {
-  const pts = ev.pts;
-  let { z, r } = sim.pos;
-  while (sim.k < pts.length - 1 && pts[sim.k + 1][2] <= tb) {
-    const p = pts[sim.k + 1];
-    sim.rpm = p[3];
-    if (!carveSegment(z, r, p[0], p[1], ev.type, ev.line)) return false;
-    z = p[0];
-    r = p[1];
-    sim.k++;
-  }
-  if (sim.k < pts.length - 1) {
-    const a = pts[sim.k];
-    const b = pts[sim.k + 1];
-    const f = (tb - a[2]) / Math.max(1e-12, b[2] - a[2]);
-    const nz = a[0] + (b[0] - a[0]) * f;
-    const nr = a[1] + (b[1] - a[1]) * f;
-    sim.rpm = a[3] + (b[3] - a[3]) * f;
-    if (!carveSegment(z, r, nz, nr, ev.type, ev.line)) return false;
-    z = nz;
-    r = nr;
-  }
-  sim.pos = { z, r };
-  return true;
-}
-
-function advance(dt) {
-  let budget = sim.turbo ? Infinity : dt * sim.speed;
-  const t0 = performance.now();
-  const evs = sim.events;
-  while (sim.status === 'run' && budget > 0 && sim.idx < evs.length) {
-    if (sim.turbo && performance.now() - t0 > 30) break;
-    const ev = evs[sim.idx];
-    if (sim.startedIdx !== sim.idx) {
-      sim.startedIdx = sim.idx;
-      sim.k = 0;
-      const act = onEventStart(ev);
-      if (act === 'stop') return;
-      if (act === 'consumed') {
-        sim.idx++;
-        sim.t = 0;
-        return;
-      }
-    }
-    const dur = ev.duration || 0;
-    const step = Math.min(budget, dur - sim.t);
-    if (ev.pts && !moveAlong(ev, sim.t + step)) return;
-    if (!ev.pts) sim.rpm = rpmFor(ev.state, sim.pos.r);
-    sim.t += step;
-    sim.elapsed += step;
-    budget -= step;
-    if (sim.t >= dur - 1e-9) {
-      if (ev.pts) {
-        const last = ev.pts[ev.pts.length - 1];
-        sim.pos = { z: last[0], r: last[1] };
-        sim.k = ev.pts.length - 1;
-      }
-      sim.idx++;
-      sim.t = 0;
-      const next = evs[sim.idx];
-      if (sim.single && next && next.line !== ev.line) {
-        setStatus('hold');
-        highlightLine(next.line);
-      }
-    }
-  }
-  if (sim.idx >= evs.length && sim.status === 'run') setStatus('end');
+  highlightLine(a.line, true);
+  message(fmt, 'err', a.line);
 }
 
 // ---------------------------------------------------------------- DRO
@@ -718,7 +566,7 @@ function updateDRO() {
     $('droG').textContent = st.motion === 33 ? 'G33' : `G${st.motion}`;
     $('droMode').textContent = `${st.abs ? 'G90' : 'G91'} ${st.feedPerRev ? 'G95' : 'G94'} ${st.css ? `G96 ${st.Vc}m/min` : 'G97'}`;
   }
-  $('statusTime').textContent = `${fmtTime(sim.elapsed)} / ${fmtTime(sim.result?.stats.totalTime)}`;
+  $('statusTime').textContent = `${fmtTime(sim.elapsed)} / ${fmtTime(ui.result?.stats.totalTime)}`;
 }
 
 // ---------------------------------------------------------------- laço
@@ -727,10 +575,12 @@ function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   if (sim.status === 'run') {
-    advance(dt);
+    // "até o fim": sem limite de tempo de máquina, mas no máximo 30 ms por quadro
+    if (ui.turbo) sim.advance(Infinity, 30);
+    else sim.advance(dt * ui.speed);
     scene.setToolPos(sim.pos.z, sim.pos.r);
     if (sim.events.length) scene.setProgress(sim.idx, sim.k);
-    if (sim.chipAcc > 0 && !sim.turbo) {
+    if (sim.chipAcc > 0 && !ui.turbo) {
       scene.spawnChips(sim.pos.z, sim.pos.r, Math.min(12, 1 + Math.floor(sim.chipAcc * 3)));
     }
     sim.chipAcc = 0;
@@ -796,8 +646,8 @@ $('btnApplyStock').onclick = () => {
 };
 $('speed').oninput = (e) => {
   const i = Number(e.target.value);
-  sim.speed = SPEEDS[i];
-  $('speedVal').textContent = `${sim.speed}×`;
+  ui.speed = SPEEDS[i];
+  $('speedVal').textContent = `${ui.speed}×`;
   saveSettings({ speed: i });
 };
 $('chkPath').onchange = (e) => {
@@ -830,12 +680,13 @@ document.querySelectorAll('[data-view]').forEach((b) => (b.onclick = () => scene
     app.turretCfg = sanitizeTurret(s.turret);
     app.turret = buildTurret(app.turretCfg);
     scene.setTurret(app.turret);
+    sim.setTurret(app.turret);
   }
   if (s.dialect) $('dialectSelect').value = s.dialect;
   const speedIdx = Number.isInteger(s.speed) ? Math.min(SPEEDS.length - 1, s.speed) : 3;
-  sim.speed = SPEEDS[speedIdx];
+  ui.speed = SPEEDS[speedIdx];
   $('speed').value = speedIdx;
-  $('speedVal').textContent = `${sim.speed}×`;
+  $('speedVal').textContent = `${ui.speed}×`;
   $('chkPath').checked = s.showPath ?? true;
   $('chkSection').checked = s.section ?? false;
   scene.setShowPath($('chkPath').checked);

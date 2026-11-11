@@ -1,7 +1,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { openDb } from '../server/db.js';
-import { createApp } from '../server/app.js';
+import { openDb } from '../../server/db.js';
+import { createApp } from '../../server/app.js';
 
 let server;
 let base;
@@ -169,6 +169,56 @@ test('turmas: convite, entrega e privacidade', async () => {
   // professor remove o aluno; aluno perde acesso
   await prof('DELETE', `/api/turmas/${t.id}/members/${det.members[0].id}`);
   assert.equal((await aluno('GET', `/api/turmas/${t.id}`)).status, 404);
+});
+
+test('turmas: renomear, sair e excluir (apaga as entregas)', async () => {
+  const p = await signup('profb');
+  const a = await signup('alunob');
+  const t = (await p('POST', '/api/turmas', { name: 'T' })).body;
+  assert.equal((await p('POST', '/api/turmas', { name: '   ' })).status, 400);
+  await p('PATCH', `/api/turmas/${t.id}`, { name: 'Torno B' });
+  await a('POST', '/api/turmas/join', { code: t.invite_code });
+  assert.equal((await a('GET', '/api/turmas')).body.joined[0].name, 'Torno B');
+  const me = (await a('GET', '/api/auth/me')).body.user;
+  assert.equal((await a('DELETE', `/api/turmas/${t.id}/members/${me.id}`)).status, 200, 'aluno sai');
+  assert.deepEqual((await a('GET', '/api/turmas')).body.joined, []);
+  await a('POST', '/api/turmas/join', { code: t.invite_code });
+  const prog = (await a('POST', '/api/programs', { name: 'X1', code: 'M30' })).body;
+  const sub = (await a('POST', `/api/turmas/${t.id}/submissions`, { programId: prog.id })).body;
+  assert.equal((await a('DELETE', `/api/turmas/${t.id}`)).status, 403, 'aluno não exclui');
+  assert.equal((await p('DELETE', `/api/turmas/${t.id}`)).status, 200);
+  assert.equal((await a('GET', `/api/turmas/${t.id}/submissions/${sub.id}`)).status, 404);
+  assert.equal((await a('GET', `/api/programs/${prog.id}`)).status, 200, 'o programa do aluno continua');
+});
+
+test('trocar a senha encerra as outras sessões', async () => {
+  await signup('sessao');
+  const s1 = await login('sessao', 'senha-sessao');
+  const s2 = await login('sessao', 'senha-sessao');
+  assert.equal((await s1('POST', '/api/auth/password', { current: 'senha-sessao', next: 'nova-senha' })).status, 200);
+  assert.equal((await s1('GET', '/api/auth/me')).status, 200, 'sessão atual renovada');
+  assert.equal((await s2('GET', '/api/auth/me')).status, 401, 'outra sessão encerrada');
+});
+
+test('limites e validações de programas', async () => {
+  const c = await signup('limites');
+  assert.equal((await c('POST', '/api/programs', { name: 'A', code: 'x'.repeat(300 * 1024) })).status, 400, 'programa > 256 KB');
+  assert.equal((await c('POST', '/api/programs', { name: 'A', code: 'x'.repeat(600 * 1024) })).status, 413, 'requisição > 512 KB');
+  assert.equal((await c('POST', '/api/programs', { name: 'A'.repeat(41), code: '' })).status, 400);
+  assert.equal((await c('POST', '/api/programs', { name: 'OK.MPF', code: 5 })).status, 400);
+  assert.equal((await c('GET', '/api/programs/examples/..%2Fserver.js')).status, 400);
+  assert.equal((await c('GET', '/api/programs/examples/nao_existe.mpf')).status, 404);
+  assert.equal((await c('GET', '/api/nada')).status, 404);
+});
+
+test('cabeçalhos de segurança e arquivos estáticos', async () => {
+  const res = await fetch(base + '/');
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get('x-frame-options'), 'DENY');
+  assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
+  assert.equal(res.headers.get('x-powered-by'), null);
+  assert.equal((await fetch(base + '/shared/simulator.js')).status, 200);
+  assert.equal((await fetch(base + '/vendor/three/build/three.module.js')).status, 200);
 });
 
 test('administração do sistema por ADMIN_USERNAMES', async () => {

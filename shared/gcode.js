@@ -472,3 +472,17 @@ function sweep(z0, r0, z1, r1, cz, cr, cw) {
   if (s < 1e-9) s = TWO_PI;
   return s;
 }
+
+/**
+ * Lê a peça bruta do cabeçalho do programa:
+ * "; Bruto: D50 x 80 mm, face em Z1" (ou "STOCK: D50 x 80", "raw face at Z1").
+ * Devolve { diameter, length, faceZ? } ou null.
+ */
+export function stockFromHeader(code) {
+  const m = String(code).match(/(?:BRUTO|STOCK)[:\s]*D\s*(\d+(?:\.\d+)?)\s*[xX]\s*(\d+(?:\.\d+)?)/i);
+  if (!m) return null;
+  const out = { diameter: Number(m[1]), length: Number(m[2]) };
+  const f = String(code).match(/(?:FACE\s+(?:BRUTA\s+)?EM|RAW\s+FACE\s+AT)\s+Z\s*(\d+(?:\.\d+)?)/i);
+  if (f) out.faceZ = Number(f[1]);
+  return out;
+}

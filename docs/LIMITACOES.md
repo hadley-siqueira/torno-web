@@ -72,7 +72,7 @@ O planejamento geral está em [PLANO.md](PLANO.md).
 
 ## Testes
 
-- `npm test` cobre o interpretador e a API. **A remoção de material e a cena 3D não têm testes automatizados**:
-  hoje são conferidas rodando os exemplos no navegador (Puppeteer) até o fim, com e sem o corte final.
-  Vale transformar isso em teste de ponta a ponta versionado (ex.: Playwright) que rode todos os
-  exemplos e verifique ausência de alarme.
+- A cena 3D é testada só de forma grosseira (o canvas desenha algo); a aparência não tem teste de
+  regressão visual (comparação de imagens).
+- Os testes de ponta a ponta usam WebGL por software e são lentos (~3 min); por isso rodam com 2 processos.
+- A geometria é conferida em pontos escolhidos (cotas do desenho), não no perfil inteiro.

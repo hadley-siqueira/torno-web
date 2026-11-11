@@ -6,7 +6,7 @@ G-code, aperta **Cycle Start** e vê a ferramenta usinando a peça em 3D (Three.
 ```bash
 npm install
 npm start          # http://localhost:3000 – crie sua conta em "Criar conta"
-npm test           # testes do interpretador e da API
+npm test           # testes unitários e da API (rápidos, sem navegador)
 ```
 
 Requer Node.js 22.13 ou mais novo (usa o SQLite nativo do Node). O banco fica em `data/cnc.db`
@@ -32,6 +32,26 @@ Requer Node.js 22.13 ou mais novo (usa o SQLite nativo do Node). O banco fica em
 | `TRUST_PROXY` | Atrás de proxy reverso (nginx/Caddy): ex. `1` ou `loopback` |
 | `ADMIN_USERNAMES` | Usuários administradores do sistema, separados por vírgula |
 
+## Testes
+
+| Comando | O que roda |
+|---|---|
+| `npm test` | Unitários (`test/unit`) e API (`test/api`), ~3 s |
+| `npm run test:coverage` | O mesmo, com relatório de cobertura de `shared/` e `server/` |
+| `npm run test:e2e` | Navegador real com Playwright (`test/e2e`), ~3 min. Na 1ª vez: `npx playwright install chromium` |
+| `npm run test:all` | Tudo |
+
+- **Unitários:** interpretador de G-code, ferramentas, remoção de material (`shared/stock-model.js`),
+  motor da simulação (`shared/simulator.js`) e traduções (toda mensagem tem texto em PT e EN).
+- **Exemplos:** `test/unit/examples.test.js` simula cada programa de `programs/` até o fim, sem navegador,
+  e confere as **cotas da peça pronta**. Ao criar ou alterar um exemplo, acrescente as cotas lá
+  (o teste avisa se algum exemplo ficou sem cotas).
+- **API:** contas, sessões, programas, turmas, entregas, administração e proteções (CSRF, limites).
+- **Ponta a ponta:** login e cadastro, simulação com alarme, Cycle Start/Feed Hold/bloco a bloco,
+  salvar/abrir/excluir, idioma, torre, turmas com convite e entrega, administração. O servidor sobe
+  com banco em memória.
+- **CI:** `.github/workflows/test.yml` roda tudo a cada push (quando o repositório estiver no GitHub).
+
 ## Arquitetura
 
 Cliente-servidor: o navegador faz o trabalho pesado (interpretar G-code, simular, desenhar em 3D);
@@ -44,11 +64,13 @@ o servidor cuida de login, sessões, banco de dados e programas dos alunos.
 | Banco | `server/db.js` | SQLite + migrações (usuários, sessões, programas, configurações) |
 | Autenticação | `server/auth.js` | Senhas (scrypt), sessões por cookie, limite de tentativas |
 | Interpretador | `shared/gcode.js` | G-code → eventos temporizados (roda no navegador e no Node) |
+| Modelo da peça | `shared/stock-model.js` | Perfis externo/interno, remoção de material e colisões (sem 3D) |
+| Motor da simulação | `shared/simulator.js` | Executa os eventos no tempo sobre o modelo da peça (sem interface) |
 | Ferramentas | `shared/tools.js` | Torre de 8 posições e geometria das pastilhas |
 | Idiomas | `shared/i18n.js` | Textos PT/EN da interface e das mensagens |
-| Peça | `public/js/stock.js` | Perfil r(z), remoção de material, malha de revolução |
+| Peça 3D | `public/js/stock.js` | Malha de revolução e vista em corte a partir do modelo da peça |
 | Cena 3D | `public/js/scene.js` | Placa, ferramenta, trajetória, cavacos, vista em corte |
-| Simulador | `public/js/main.js` | Editor, DRO, softkeys, programas, laço da simulação |
+| Simulador | `public/js/main.js` | Editor, DRO, softkeys, programas; liga o motor à cena 3D |
 | Turmas | `public/turmas.html`, `public/join.html` | Criar turmas, convites, alunos e entregas |
 | Contas | `public/login.html`, `public/signup.html` | Entrar e criar conta |
 | Administração | `public/admin.html` | Ativar/desativar contas (só `ADMIN_USERNAMES`) |
