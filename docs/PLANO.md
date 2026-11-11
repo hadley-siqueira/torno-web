@@ -80,6 +80,24 @@ Ciclos do **802D sl** (são estes que os alunos usam na máquina):
       programGUIDE. Fase posterior.
 - [ ] *(Mais tarde, a avaliar)* Programação conversacional por etapas, no estilo ShopTurn.
 
+### Pedidos de funcionalidade (2026-11-11)
+
+- [ ] **Roscas:** hoje a rosca aparece como um rebaixo liso até o fundo do filete. Pedido:
+      - hélice visível na peça (externa e interna), com passo, profundidade e sentido corretos;
+      - passes múltiplos de rosca visíveis (o filete aprofundando a cada passe);
+      - G33 cônica, várias entradas e ângulo de início `SF=`, conforme o 802D sl;
+      - **CYCLE97** (e depois CYCLE98) e, no Fanuc básico, G76/G92 se a pergunta 4 confirmar;
+      - avisos didáticos: passo incompatível com a ferramenta, rotação alta demais para o passo,
+        falta de entrada/saída (aproximação antes do início da rosca).
+      Caminho técnico: a hélice é só visual (deslocar os vértices da malha conforme o ângulo); o modelo
+      de remoção continua por perfil. Ver também LIMITACOES.md.
+- [ ] **Fluidos (refrigeração):** hoje M8/M9 são lidos e ignorados. Pedido:
+      - jato de fluido de corte saindo do bico em direção à ponta da ferramenta com M8, parando com M9;
+      - indicação do estado da refrigeração no painel (como a lâmpada/tecla da máquina);
+      - aviso didático (opcional, configurável) ao usinar sem refrigeração;
+      - respeitar o modo econômico (sem aceleração gráfica, efeito simplificado ou desligado).
+      Caminho técnico: partículas/linhas no Three.js, desenhadas só enquanto a refrigeração está ligada.
+
 ## Etapa 2: operação (foco SSCNC / máquina real)
 
 - [ ] **Modos de operação:** JOG, manivela (incrementos 0,001 / 0,01 / 0,1), MDA e AUTO.
@@ -102,6 +120,8 @@ Ciclos do **802D sl** (são estes que os alunos usam na máquina):
 - [ ] **Fase 2 – Tabela de cotas** automática da peça pronta.
 - [ ] **Fase 3 – Comparar com o desenho:** cotas esperadas e tolerâncias no exercício; correção automática.
 - [ ] **Fase 4 (opcional) – Desenho em diedro** da peça pronta (1º diedro, ABNT), com cotas.
+      Detalhado em [Desenho técnico a partir da peça](#desenho-técnico-a-partir-da-peça-caminho-inverso)
+      (fases A–E).
 - [ ] **Exercícios e avaliação:** enunciado, peça bruta, ferramentas disponíveis e nota automática.
 - [x] Contas e entrega de programas pelo servidor (turmas e entregas, 2026-11-11).
 
@@ -130,7 +150,7 @@ medidas após a simulação é feita assim nas aulas e quais instrumentos são u
 | 1. Medir na peça | Modo "Medir" nas vistas Lateral e Peça pronta. Clique num trecho mostra Ø externo e Ø do furo; clique em duas faces mostra o comprimento; o clique "gruda" em faces e cantos. Valor no formato do instrumento (paquímetro 0,02/0,05 mm, micrômetro 0,01 mm, súbito para furos) | É o que o professor descreveu e o que o SSCNC faz | Pergunta 16 (resoluções) |
 | 2. Tabela de cotas | Lista automática da peça pronta: cada diâmetro (Ø, Z inicial, Z final, comprimento), faces, cones, furos | Conferência rápida sem clicar ponto a ponto | — |
 | 3. Comparar com o desenho | No exercício, o professor cadastra cotas esperadas e tolerâncias (ex.: Ø30 ±0,05; 55 ±0,1); o sistema mede a peça entregue e marca verde/vermelho | Correção automática; usa turmas e entregas que já existem | Definir o formato dos exercícios |
-| 4. Desenho em diedro (opcional) | Desenho técnico da peça pronta em 1º diedro: vista frontal com meio corte, vista lateral, cotas automáticas; exportar PDF/SVG | Ensina leitura de desenho; mais trabalhoso | — |
+| 4. Desenho em diedro (opcional) | Desenho técnico da peça pronta em 1º diedro: vista frontal com meio corte, vista lateral, cotas automáticas; exportar PDF/SVG. Detalhado nas fases A–E da seção seguinte | Ensina leitura de desenho; mais trabalhoso | Pergunta 18 (estilo de cotagem) |
 
 ### Notas para a implementação
 
@@ -139,6 +159,92 @@ medidas após a simulação é feita assim nas aulas e quais instrumentos são u
   em `shared/`, testadas no Node como as cotas dos exemplos (`test/unit/examples.test.js`).
 - Ao mostrar valores, considerar a resolução da simulação (~0,035 mm; até ~0,1 mm em perfis muito
   inclinados – ver LIMITACOES.md) para não exibir casas decimais enganosas.
+
+## Desenho técnico a partir da peça (caminho inverso)
+
+Registrado em 2026-11-11. **Status: proposta.** Amplia as fases 2 e 4 do plano de medição.
+
+Na prática o mecânico parte do desenho 2D cotado e escreve o código G. A ideia aqui é o caminho
+inverso: a partir da peça torneada pronta, gerar o desenho 2D com cotas, ângulos e raios, e usá-lo
+para o aluno ver no papel o que o programa dele produziu.
+
+### Viabilidade
+
+- **Viável, e mais fácil que no caso geral**, porque a peça de torno é um **sólido de revolução**:
+  ela é inteira definida por um contorno 2D girado em torno do eixo. O modelo já guarda exatamente
+  isso (raio externo `r` e raio do furo `ri` a cada 0,05 mm em Z); o 3D é só esse contorno girado.
+- Duas fontes de informação, usadas juntas:
+  - **peça simulada:** diz o que realmente ficou (o que foi cortado e o que sobrou);
+  - **programa (eventos do interpretador):** dá os valores exatos (`G1 X30` → Ø30, `CR=5` → R5),
+    evitando cotas aproximadas como 29,98.
+
+| Parte | Dificuldade | Motivo |
+|---|---|---|
+| Contorno 2D (meio corte com hachura) | Baixa | O perfil já existe; a vista Lateral quase faz isso |
+| Converter pontos em retas e arcos | Média | Agrupar as amostras e casar com os movimentos do programa |
+| Reconhecer elementos (degrau, chanfro, cone, raio, canal, furo, rosca) | Média | Regras geométricas simples num contorno de torno |
+| **Cotagem automática** (quais cotas, onde pôr, sem sobrepor) | **Alta** | Exige critério de desenhista; dá para automatizar um estilo, não todos |
+| Tolerâncias, rugosidade, material | Não sai da peça | Vêm do desenho original (cadastro do exercício) |
+
+### Fases
+
+- [ ] **Fase A – Contorno técnico 2D:** vista frontal com **meio corte** (metade de cima em vista,
+      metade de baixo cortada e hachurada, mostrando o furo), linha de centro (traço-ponto), arestas
+      visíveis e ocultas; contorno convertido em retas e arcos e ajustado às coordenadas do programa.
+- [ ] **Fase B – Reconhecimento dos elementos:** diâmetros de cada degrau, comprimentos e faces;
+      chanfro (`1×45°`), cone com ângulo, raio (`R5`), canal (largura × profundidade), furo e rebaixo
+      interno, profundidade da broca; rosca a partir do G33 (`M20×1,5`), desenhada pela convenção da
+      norma (linha fina no fundo do filete).
+- [ ] **Fase C – Cotagem automática:** diâmetros com `Ø`, comprimentos a partir de uma face de
+      referência; opção do professor entre **cotas em paralelo** (todas da mesma face) e **em cadeia**;
+      ângulos, raios e roscas; cotas distribuídas em "andares" para não se sobreporem. Começar com um
+      estilo simples e fixo e refinar.
+- [ ] **Fase D – Folha de desenho:** vista frontal + vista lateral (círculos) no **1º diedro (ABNT)**,
+      carimbo/legenda (aluno, turma, programa, escala, data), exportar **PDF/SVG** e imprimir.
+- [ ] **Fase E – Uso didático** (= fase 3 do plano de medição): o professor cadastra o desenho
+      esperado; o simulador gera o desenho da peça do aluno e **destaca as cotas diferentes**
+      (ex.: "Ø30 esperado, saiu Ø32").
+
+Ordem sugerida: A e B primeiro (resultado visível rápido, pouco risco); C em seguida (a mais
+trabalhosa); D e E depois da resposta à pergunta 16.
+
+### Limitações a aceitar
+
+- Sem raio de ponta e sem G41/G42 (ver LIMITACOES.md), os cantos saem vivos no desenho, como na simulação.
+- Cotas de perfis muito inclinados podem ter erro de ~0,1 mm; usar os valores do programa corrige a
+  maior parte.
+- A cotagem automática segue um padrão e não vai coincidir sempre com o jeito de cada professor cotar.
+
+### Notas para a implementação
+
+- Funções puras em `shared/` (extrair contorno, ajustar retas/arcos, reconhecer elementos, gerar cotas),
+  testadas no Node com os exemplos de `programs/` (as cotas dos desenhos já são conferidas em
+  `test/unit/examples.test.js`).
+- Desenho em **SVG** no navegador (escala exata, fácil de imprimir e exportar); PDF pela impressão do navegador.
+- O contorno do programa vem dos eventos com `pts`; os arcos (G2/G3) precisam guardar centro e raio
+  no evento para virar cota `R` exata.
+
+## Possibilidade futura: fresadora
+
+Registrado em 2026-11-11. **Status: ideia para depois que o torno estiver maduro.** Surgiu da pergunta
+se o desenho técnico gerado da peça (seção anterior) funcionaria também numa fresadora.
+
+- **Na prática é um segundo simulador.** O modelo atual da peça (um raio por posição Z) só serve para
+  sólidos de revolução. Muda o modelo da peça, as ferramentas (fresas), o plano de trabalho (G17),
+  os ciclos (bolsão, rasgo, furação em padrão) e a cena 3D.
+- **Reaproveitável:** servidor (contas, turmas, entregas), editor, base do interpretador de código G,
+  interface, idiomas e estrutura de testes.
+- **Modelo da peça:** fresadora 3 eixos (ferramenta vindo de cima) → **mapa de alturas** (grade XY com
+  a altura do material em cada ponto). Rebaixos laterais e rasgos em T exigem voxels ou tri-dexel (mais pesados).
+
+| Máquina | Simular a peça | Extrair vistas | Cotar automaticamente |
+|---|---|---|---|
+| Torno (atual) | Fácil (contorno 2D) | Fácil | Média/alta |
+| Fresadora 3 eixos | Média (mapa de alturas) | Média: vista de cima e silhuetas fáceis; linhas ocultas e cortes dão trabalho | Alta: exige reconhecer feições (bolsão, rasgo, furação); melhor partir dos ciclos do programa |
+| Fresadora 5 eixos / torno com ferramenta acionada | Alta | Alta | Muito alta |
+
+- **Precisão:** a grade tem resolução limitada (0,1–0,5 mm) e as bordas saem serrilhadas; os valores
+  exatos das cotas devem vir do programa (ex.: ciclo de furação → posição, diâmetro e profundidade).
 
 ## Estudo de viabilidade: perfis de interface
 
@@ -178,7 +284,7 @@ a mesma sequência (abrir programa, simular, fazer preset, rodar em AUTO) sem pr
 
 1. Etapa 0 (base) + ciclo de desbaste CYCLE95 / G71-G70
 2. Tabela de ferramentas, corretores e G54 + G41/G42
-3. Rosca com hélice + ciclos de rosca e canal
+3. Rosca com hélice + ciclos de rosca e canal + refrigeração (fluido) visível
 4. Vista 2D + editor com checagem ao vivo
 5. Levantamento e protótipo do perfil "Máquina"
 6. Modos JOG/manivela/MDA + preset (já dentro do perfil escolhido)
@@ -306,4 +412,5 @@ Nenhuma bloqueia o trabalho atual; as suposições acima cobrem as lacunas.
 | 11 | O aluno usa rotação fixa (`G97 S…`) ou velocidade de corte constante (`G96`)? | Padrão dos exemplos e exercícios |
 | 16 | Confirmar com o professor: a conferência de medidas após a simulação é feita assim (diâmetros e comprimentos entre faces)? Quais instrumentos os alunos usam (paquímetro 0,02 ou 0,05 mm, micrômetro 0,01 mm, súbito)? Querem desenho em diedro? | Libera o [plano de medição](#plano-de-medição-e-conferência-da-peça) e define as resoluções |
 | 15 | Capturas de tela do **SinuTrain do professor** (é no PC, não depende da máquina): a tela de criar máquina, mostrando os tipos de comando disponíveis, e algumas telas de uso | Saber se os alunos veem 802D sl ou Operate; serve de referência visual enquanto a máquina está parada |
+| 18 | Nos desenhos das atividades, as cotas de comprimento são **em paralelo** (todas a partir de uma face), **em cadeia** ou misturadas? | Estilo padrão da cotagem automática ([desenho técnico](#desenho-técnico-a-partir-da-peça-caminho-inverso), fase C) |
 | 14 | O perfil "Máquina" deve imitar o **802D sl** (máquina real) ou a interface do **SinuTrain/Operate** (o que os alunos usam agora)? | Define o alvo do protótipo de interface |

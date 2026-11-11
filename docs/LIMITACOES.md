@@ -24,7 +24,7 @@ O planejamento geral está em [PLANO.md](PLANO.md).
 
 | Limitação | Efeito | Caminho sugerido |
 |---|---|---|
-| **Rosca sem hélice** | A rosca aparece como um rebaixo até o fundo do filete | Desenhar a hélice só na malha (deslocamento de vértices por ângulo), sem mudar o modelo de remoção |
+| **Rosca sem hélice** (pedido registrado no PLANO, Etapa 1) | A rosca aparece como um rebaixo até o fundo do filete | Desenhar a hélice só na malha (deslocamento de vértices por ângulo), sem mudar o modelo de remoção |
 | **Um único raio interno por posição Z** | Canal interno "atrás" de um ressalto, ou um anel fino que sobra sob a pastilha, não é representado; até 1 mm sob a pastilha interna vira cavaco | Trocar o perfil por uma lista de intervalos [rᵢ, rₑ] por posição Z |
 | **Ponta viva** (sem raio de ponta) | Cantos internos ficam vivos | Junto com G41/G42 |
 | **Furação só em X0** | Broca fora do centro gera alarme (correto para torno sem ferramenta acionada) | — |
@@ -50,6 +50,7 @@ O planejamento geral está em [PLANO.md](PLANO.md).
 - A torre é um bloco que acompanha a ferramenta ativa; não gira na troca e não mostra as 8 ferramentas montadas.
 - Ferramentas são silhuetas extrudadas (brocas e barras aparecem "achatadas").
 - Contraponto, porta, refrigeração e luzes da máquina não existem.
+- M8/M9 não têm efeito visível: não aparece o jato de fluido de corte (pedido registrado no PLANO, Etapa 1).
 - A rotação da placa é limitada visualmente (para não "piscar"), não é a rotação real.
 
 ## Desempenho
