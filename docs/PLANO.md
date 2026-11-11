@@ -25,13 +25,25 @@
 
 ## Etapa 0: base técnica (pré-requisito das demais)
 
-- [ ] Separar o **estado da máquina** (posição, modos, corretores, origens, ferramenta ativa,
-      overrides) em um módulo próprio, usado pela UI e pela simulação.
-- [ ] **Seleção de dialeto** (Sinumerik / Fanuc) na configuração, para resolver ambiguidades como G70/G71.
-- [ ] **Tabela de ferramentas** como dado editável (tipo, ângulo, raio de ponta, posição de corte,
-      corretores de geometria e desgaste X/Z), salva no servidor.
-- [ ] **Origens** G54–G57 (deslocamento Z da peça, no mínimo).
-- [ ] Rodar o interpretador também no navegador (o módulo já é compartilhado), para checagem ao vivo no editor.
+Feito em 2026-11-11:
+
+- [x] **Login** de aluno e professor (senha com scrypt, sessão por cookie, limite de tentativas).
+- [x] **Banco SQLite** (módulo nativo do Node), com migrações.
+- [x] **Programas salvos por aluno** (criar, salvar, salvar como, excluir) e rascunho automático no navegador.
+- [x] **Configurações por usuário** (idioma, dialeto, peça bruta, velocidade, vistas).
+- [x] **Painel do professor:** cadastrar alunos e turmas, redefinir senha, desativar, ler os programas dos alunos.
+- [x] **Idioma PT/EN** em toda a interface e nas mensagens do interpretador.
+- [x] **Interpretador rodando no navegador**; `/api/parse` fica como apoio no servidor.
+- [x] **Seleção de dialeto** (Sinumerik / Fanuc) para resolver G70/G71.
+- [x] **Torre padrão de 8 ferramentas** (T1–T4 externas simuladas; T5–T8 se movem, mas ainda não removem material).
+
+Falta:
+
+- [ ] Separar o **estado da máquina** (posição, modos, corretores, origens, overrides) em um módulo próprio.
+      Melhor fazer junto com os modos JOG/MDA da Etapa 2.
+- [ ] **Tabela de ferramentas editável** (raio de ponta, corretores de geometria e desgaste).
+- [ ] **Origens** G54–G57 com deslocamento real (hoje o zero da peça é sempre a face).
+- [ ] **Implantação no VPS:** HTTPS (proxy reverso), `NODE_ENV=production`, backup do banco.
 
 ## Etapa 1: programação (foco SinuTrain)
 

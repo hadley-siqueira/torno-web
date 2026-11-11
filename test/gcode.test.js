@@ -39,11 +39,13 @@ test('G96 limita rpm por LIMS', () => {
 });
 
 test('alarmes: F ausente, fuso parado, ferramenta inexistente, arco inválido', () => {
-  assert.match(parseProgram('S100 M3\nG1 X10').alarm.message, /F/);
-  assert.match(parseProgram('G95 F0.1\nG1 X10').alarm.message, /fuso/);
-  assert.match(parseProgram('T9').alarm.message, /T9/);
-  assert.match(parseProgram('S100 M3\nG0 X0 Z0\nG2 X40 Z0 CR=5 F.1').alarm.message, /Raio/);
-  assert.equal(parseProgram('G0 X10 @').alarm.line, 0);
+  assert.equal(parseProgram('S100 M3\nG1 X10').alarm.code, 'E_NO_FEED');
+  assert.equal(parseProgram('G95 F0.1\nG1 X10').alarm.code, 'E_SPINDLE_STOPPED');
+  assert.deepEqual(parseProgram('T9').alarm, { line: 0, code: 'E_TOOL_MISSING', params: { t: 9 } });
+  assert.equal(parseProgram('S100 M3\nG0 X0 Z0\nG2 X40 Z0 CR=5 F.1').alarm.code, 'E_ARC_RADIUS_SMALL');
+  const syn = parseProgram('G0 X10 @').alarm;
+  assert.equal(syn.line, 0);
+  assert.equal(syn.code, 'E_SYNTAX');
 });
 
 test('incremental U/W, G91 e T0202 Fanuc', () => {
@@ -51,4 +53,23 @@ test('incremental U/W, G91 e T0202 Fanuc', () => {
   const last = moves(r).at(-1).pts.at(-1);
   assert.deepEqual(last.slice(0, 2), [2, 13]);
   assert.equal(r.events[0].type, 'toolchange');
+});
+
+test('dialeto decide G70/G71 e ferramentas não simuladas geram aviso', () => {
+  assert.equal(parseProgram('G71\nM30').alarm, null);
+  assert.equal(parseProgram('G70\nM30').alarm.code, 'E_INCH');
+  assert.equal(parseProgram('G70 P10 Q20\nM30', { dialect: 'fanuc' }).alarm.code, 'E_FANUC_G70');
+  const f = parseProgram('G71 U2 R1\nM30', { dialect: 'fanuc' });
+  assert.equal(f.warnings[0].code, 'W_FANUC_G71');
+  const d = parseProgram('T6 D1\nT1\nT6\nM30');
+  assert.equal(d.warnings.filter((w) => w.code === 'W_TOOL_NOT_SIMULATED').length, 1);
+});
+
+test('mensagens traduzidas em PT e EN com nome da ferramenta', async () => {
+  const { formatMessage, t, MESSAGES } = await import('../shared/i18n.js');
+  const m = { code: 'I_TOOLCHANGE', params: { t: 2 } };
+  assert.equal(formatMessage('pt', m), 'T2: Acabamento externo 35°');
+  assert.equal(formatMessage('en', m), 'T2: External finishing 35°');
+  assert.equal(t('en', 'E_ARC_END', { diff: 0.2 }), 'Arc end point is not on the circle (difference 0.2 mm)');
+  assert.deepEqual(Object.keys(MESSAGES.en).sort(), Object.keys(MESSAGES.pt).sort(), 'catálogos PT e EN com as mesmas chaves');
 });

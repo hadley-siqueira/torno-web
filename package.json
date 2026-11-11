@@ -7,11 +7,15 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "create-user": "node scripts/create-user.js"
   },
   "license": "MIT",
   "dependencies": {
     "express": "^5.3.0",
     "three": "^0.187.0"
+  },
+  "engines": {
+    "node": ">=22.13"
   }
 }

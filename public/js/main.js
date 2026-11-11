@@ -1,21 +1,33 @@
 import * as THREE from 'three';
 import { LatheScene } from './scene.js';
-import { TOOLS } from '/shared/tools.js';
+import { api, ApiError } from './api.js';
+import { applyI18n, guessLang, rememberLang } from './i18n-dom.js';
+import { parseProgram } from '/shared/gcode.js';
+import { t, formatMessage, LANGS } from '/shared/i18n.js';
+import { TOOLS, toolName, isSimulated } from '/shared/tools.js';
 
 const $ = (id) => document.getElementById(id);
 const SPEEDS = [0.5, 1, 2, 5, 10, 20, 50, 100, 200];
 const LH = 20; // altura da linha no editor (px), igual ao CSS
-const STORAGE_KEY = 'torno-cnc:code';
 
 const ta = $('code');
 const gutter = $('gutter');
 const hl = $('hl');
 const scene = new LatheScene($('viewport'));
 
+const app = {
+  lang: guessLang(),
+  user: null,
+  settings: {},
+  // documento aberto no editor
+  doc: { kind: 'new', id: null, name: '', savedCode: '' },
+  examples: [],
+  mine: [],
+};
+
 const sim = {
   result: null,
   events: [],
-  parsedCode: null,
   idx: 0,
   t: 0,
   k: 0, // segmento atual dentro do evento
@@ -35,47 +47,97 @@ const sim = {
   lines: [],
 };
 
+const tr = (key, params) => t(app.lang, key, params);
+
 // ---------------------------------------------------------------- utilidades
 const fmtTime = (s) => {
   s = Math.max(0, Math.round(s || 0));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 };
-const lsGet = (k) => {
-  try {
-    return localStorage.getItem(k);
-  } catch {
-    return null;
-  }
-};
-const lsSet = (k, v) => {
-  try {
-    localStorage.setItem(k, v);
-  } catch {
-    /* sem armazenamento: ignora */
-  }
+const store = {
+  get(k) {
+    try {
+      return JSON.parse(localStorage.getItem(k));
+    } catch {
+      return null;
+    }
+  },
+  set(k, v) {
+    try {
+      localStorage.setItem(k, JSON.stringify(v));
+    } catch {
+      /* sem armazenamento */
+    }
+  },
 };
 
-function message(text, cls = 'info', line = null) {
-  const div = document.createElement('div');
-  div.className = `m ${cls}`;
-  div.textContent = line !== null ? `Linha ${line + 1}: ${text}` : text;
-  if (line !== null) div.onclick = () => selectLine(line);
-  $('messages').appendChild(div);
+// Mensagens guardam uma função de formatação para poderem ser retraduzidas
+const messages = [];
+function message(fmt, cls = 'info', line = null) {
+  messages.push({ fmt, cls, line });
+  renderMessage(messages[messages.length - 1]);
   $('messages').scrollTop = 1e9;
 }
-const clearMessages = () => ($('messages').innerHTML = '');
+function renderMessage(m) {
+  const div = document.createElement('div');
+  div.className = `m ${m.cls}`;
+  const text = m.fmt();
+  div.textContent = m.line !== null ? tr('S_LINE', { n: m.line + 1, msg: text }) : text;
+  if (m.line !== null) div.onclick = () => selectLine(m.line);
+  $('messages').appendChild(div);
+}
+const msgKey = (key, params, cls, line) => message(() => tr(key, params), cls, line);
+const msgCode = (m, cls, line) => message(() => formatMessage(app.lang, m), cls, line);
+function clearMessages() {
+  messages.length = 0;
+  $('messages').innerHTML = '';
+}
+function rerenderMessages() {
+  $('messages').innerHTML = '';
+  messages.forEach(renderMessage);
+}
+const errorText = (e) => tr('S_ERROR', { msg: e instanceof ApiError ? e.code : e.message });
+
+// ---------------------------------------------------------------- idioma
+function setLang(lang) {
+  if (!LANGS.includes(lang)) return;
+  app.lang = lang;
+  rememberLang(lang);
+  $('langSelect').value = lang;
+  applyI18n(lang);
+  setStatus(sim.status);
+  renderToolList();
+  renderProgramSelect();
+  updateDocTitle();
+  rerenderMessages();
+  if (sim.alarmInfo) showAlarmBox(sim.alarmInfo);
+}
+
+// ---------------------------------------------------------------- configurações do usuário
+let settingsTimer;
+function saveSettings(patch) {
+  Object.assign(app.settings, patch);
+  clearTimeout(settingsTimer);
+  settingsTimer = setTimeout(() => api('PUT', '/api/settings', app.settings).catch(() => {}), 600);
+}
 
 // ---------------------------------------------------------------- editor
 let lineMarks = new Map();
 
 function updateGutter() {
   const n = ta.value.split('\n').length;
-  let html = '';
+  const frag = document.createDocumentFragment();
   for (let i = 0; i < n; i++) {
+    const div = document.createElement('div');
     const mk = lineMarks.get(i);
-    html += `<div class="${mk ? mk.cls : ''}" ${mk ? `title="${mk.msg.replace(/"/g, '&quot;')}"` : ''}>${i + 1}</div>`;
+    if (mk) {
+      div.className = mk.cls;
+      div.title = mk.fmt();
+    }
+    div.textContent = i + 1;
+    frag.appendChild(div);
   }
-  gutter.innerHTML = html;
+  gutter.replaceChildren(frag);
   syncScroll();
 }
 
@@ -117,12 +179,13 @@ function selectLine(line) {
 }
 
 ta.addEventListener('scroll', syncScroll);
-let saveTimer;
+let draftTimer;
 ta.addEventListener('input', () => {
   lineMarks = new Map();
   updateGutter();
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => lsSet(STORAGE_KEY, ta.value), 400);
+  updateDocTitle();
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(saveDraft, 400);
 });
 const updateCursor = () => {
   const before = ta.value.slice(0, ta.selectionStart);
@@ -134,8 +197,152 @@ ta.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
     e.preventDefault();
     cycleStart();
+  } else if (e.key === 's' && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    saveProgram();
   }
 });
+
+// ---------------------------------------------------------------- documento / programas
+const draftKey = () => `torno-cnc:draft:${app.user?.id}`;
+const isDirty = () => ta.value !== app.doc.savedCode;
+
+function saveDraft() {
+  store.set(draftKey(), { code: ta.value, doc: app.doc });
+}
+
+function updateDocTitle() {
+  const d = app.doc;
+  const el = $('progName');
+  el.textContent = d.name || tr('untitled');
+  if (d.kind === 'example') el.title = tr('read_only_example');
+  else el.removeAttribute('title');
+  if (isDirty()) {
+    const s = document.createElement('span');
+    s.className = 'dirty';
+    s.textContent = ` • ${tr('modified')}`;
+    el.appendChild(s);
+  }
+  $('btnDelete').disabled = d.kind !== 'mine';
+}
+
+function setDocument(doc, code) {
+  if (sim.status === 'run' || sim.status === 'hold') doReset();
+  app.doc = { ...doc, savedCode: doc.savedCode ?? code };
+  ta.value = code;
+  lineMarks = new Map();
+  ta.scrollTop = 0;
+  updateGutter();
+  updateDocTitle();
+  saveDraft();
+  if (stockFromHeader(code)) applyStock();
+  else doReset();
+}
+
+function renderProgramSelect() {
+  const sel = $('programSelect');
+  const cur = sel.value;
+  sel.replaceChildren();
+  const group = (label, items) => {
+    const g = document.createElement('optgroup');
+    g.label = label;
+    for (const [value, text] of items) g.appendChild(new Option(text, value));
+    sel.appendChild(g);
+  };
+  group(tr('my_programs'), app.mine.map((p) => [`mine:${p.id}`, p.name]));
+  group(tr('examples'), app.examples.map((n) => [`ex:${n}`, n]));
+  const want = app.doc.kind === 'mine' ? `mine:${app.doc.id}` : app.doc.kind === 'example' ? `ex:${app.doc.name}` : cur;
+  if ([...sel.options].some((o) => o.value === want)) sel.value = want;
+}
+
+async function refreshPrograms() {
+  const r = await api('GET', '/api/programs');
+  app.examples = r.examples;
+  app.mine = r.mine;
+  renderProgramSelect();
+}
+
+async function openSelected() {
+  const v = $('programSelect').value;
+  if (!v) return;
+  if (isDirty() && !confirm(tr('confirm_discard'))) return;
+  const [kind, ref] = [v.slice(0, v.indexOf(':')), v.slice(v.indexOf(':') + 1)];
+  try {
+    if (kind === 'ex') {
+      const code = await api('GET', `/api/programs/examples/${encodeURIComponent(ref)}`);
+      setDocument({ kind: 'example', id: null, name: ref }, code);
+    } else {
+      const p = await api('GET', `/api/programs/${Number(ref)}`);
+      setDocument({ kind: 'mine', id: p.id, name: p.name }, p.code);
+    }
+    clearMessages();
+    msgKey('S_LOADED', { name: app.doc.name }, 'info');
+  } catch (e) {
+    msgKey('S_OPEN_FAIL', { name: ref }, 'err');
+  }
+}
+
+function newProgram() {
+  if (isDirty() && !confirm(tr('confirm_discard'))) return;
+  setDocument({ kind: 'new', id: null, name: '' }, '; \nG18 G90 G95 DIAMON\nT1 D1\nG97 S1000 M3\n\nM30\n');
+  clearMessages();
+}
+
+async function saveProgram(asNew = false) {
+  const d = app.doc;
+  try {
+    if (d.kind === 'mine' && !asNew) {
+      const p = await api('PUT', `/api/programs/${d.id}`, { code: ta.value });
+      app.doc = { kind: 'mine', id: p.id, name: p.name, savedCode: p.code };
+    } else {
+      const suggestion = d.kind === 'example' ? d.name.replace(/^\d+_/, '').toUpperCase() : d.name || 'PROGRAMA_01.MPF';
+      const name = prompt(tr('prompt_name'), suggestion)?.trim();
+      if (!name) return;
+      const p = await api('POST', '/api/programs', { name, code: ta.value });
+      app.doc = { kind: 'mine', id: p.id, name: p.name, savedCode: p.code };
+    }
+    saveDraft();
+    await refreshPrograms();
+    updateDocTitle();
+    msgKey('S_SAVED', { name: app.doc.name }, 'ok');
+  } catch (e) {
+    message(() => errorText(e), 'err');
+  }
+}
+
+async function deleteProgram() {
+  const d = app.doc;
+  if (d.kind !== 'mine' || !confirm(tr('confirm_delete', { name: d.name }))) return;
+  try {
+    await api('DELETE', `/api/programs/${d.id}`);
+    msgKey('S_DELETED', { name: d.name }, 'ok');
+    app.doc = { kind: 'new', id: null, name: '', savedCode: '' };
+    saveDraft();
+    await refreshPrograms();
+    updateDocTitle();
+  } catch (e) {
+    message(() => errorText(e), 'err');
+  }
+}
+
+// ---------------------------------------------------------------- torre
+function renderToolList() {
+  const ol = $('toolList');
+  ol.replaceChildren();
+  for (const tool of Object.values(TOOLS)) {
+    const li = document.createElement('li');
+    li.value = tool.id;
+    li.textContent = `T${tool.id} – ${toolName(tool, app.lang)}`;
+    if (!isSimulated(tool)) {
+      const s = document.createElement('span');
+      s.className = 'ns';
+      s.textContent = ` (${tr('not_simulated')})`;
+      li.appendChild(s);
+    }
+    li.title = tool.detail[app.lang] || tool.detail.pt;
+    ol.appendChild(li);
+  }
+}
 
 // ---------------------------------------------------------------- peça bruta
 function stockParams() {
@@ -146,20 +353,27 @@ function stockParams() {
   };
 }
 
+function setStockInputs(s) {
+  $('stockD').value = s.diameter;
+  $('stockL').value = s.length;
+  $('stockF').value = s.faceZ;
+}
+
 function applyStock() {
   const p = stockParams();
   scene.setStock(p);
   sim.home = { x: Math.max(150, p.diameter + 40), z: 100 };
+  saveSettings({ stock: p });
   doReset();
 }
 
-// Lê "BRUTO: D50 x 80" e "FACE EM Z1" do cabeçalho do programa
+// Lê "BRUTO: D50 x 80" (ou "STOCK: D50 x 80") e "FACE EM Z1" do cabeçalho do programa
 function stockFromHeader(code) {
-  const m = code.match(/BRUTO[:\s]*D\s*(\d+(?:\.\d+)?)\s*[xX]\s*(\d+(?:\.\d+)?)/i);
+  const m = code.match(/(?:BRUTO|STOCK)[:\s]*D\s*(\d+(?:\.\d+)?)\s*[xX]\s*(\d+(?:\.\d+)?)/i);
   if (!m) return false;
   $('stockD').value = m[1];
   $('stockL').value = m[2];
-  const f = code.match(/FACE\s+(?:BRUTA\s+)?EM\s+Z\s*(\d+(?:\.\d+)?)/i);
+  const f = code.match(/(?:FACE\s+(?:BRUTA\s+)?EM|RAW\s+FACE\s+AT)\s+Z\s*(\d+(?:\.\d+)?)/i);
   if (f) $('stockF').value = f[1];
   return true;
 }
@@ -168,49 +382,36 @@ function stockFromHeader(code) {
 function setStatus(s) {
   sim.status = s;
   const pill = $('statusState');
-  const labels = { reset: 'RESET', run: 'EXECUTANDO', hold: 'PARADO', alarm: 'ALARME', end: 'FIM' };
-  pill.textContent = labels[s];
-  pill.className = `pill ${s === 'run' ? 'run' : s === 'hold' ? 'hold' : s === 'alarm' ? 'alarm' : s === 'end' ? 'end' : ''}`;
+  pill.textContent = tr(`st_${s}`);
+  pill.className = `pill ${s === 'reset' ? '' : s}`;
   ta.readOnly = s === 'run' || s === 'hold';
 }
 
-async function prepare() {
+function prepare() {
   clearMessages();
   lineMarks = new Map();
-  let res;
-  try {
-    const r = await fetch('/api/parse', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: ta.value, options: { home: sim.home } }),
-    });
-    res = await r.json();
-    if (!r.ok) throw new Error(res.error || r.statusText);
-  } catch (e) {
-    message(`Falha ao interpretar o programa: ${e.message}`, 'err');
-    return false;
-  }
+  const res = parseProgram(ta.value, { home: sim.home, dialect: app.settings.dialect || 'sinumerik' });
   sim.result = res;
   sim.events = res.events;
-  sim.parsedCode = ta.value;
   sim.lines = ta.value.split('\n');
 
   for (const w of res.warnings) {
-    lineMarks.set(w.line, { cls: 'warn', msg: w.message });
-    message(w.message, 'warn', w.line);
+    lineMarks.set(w.line, { cls: 'warn', fmt: () => formatMessage(app.lang, w) });
+    msgCode(w, 'warn', w.line);
   }
   if (res.alarm) {
-    lineMarks.set(res.alarm.line, { cls: 'err', msg: res.alarm.message });
-    message(`O programa vai parar com alarme: ${res.alarm.message}`, 'err', res.alarm.line);
+    const a = res.alarm;
+    lineMarks.set(a.line, { cls: 'err', fmt: () => formatMessage(app.lang, a) });
+    message(() => tr('S_WILL_ALARM', { msg: formatMessage(app.lang, a) }), 'err', a.line);
   }
   const s = res.stats;
-  message(
-    `${s.blocks} blocos · tempo estimado ${fmtTime(s.totalTime)} · ferramentas ${s.tools.map((t) => 'T' + t).join(', ')} · rpm máx ${s.maxRpm}`,
+  msgKey(
+    'S_SUMMARY',
+    { blocks: s.blocks, time: fmtTime(s.totalTime), tools: s.tools.map((n) => 'T' + n).join(', '), rpm: s.maxRpm },
     'ok'
   );
   updateGutter();
   scene.setPath(sim.events);
-  return true;
 }
 
 function rewind() {
@@ -225,6 +426,7 @@ function rewind() {
   sim.rpm = 0;
   sim.dir = 0;
   sim.turbo = false;
+  sim.alarmInfo = null;
   scene.stock.reset();
   scene.clearFalling();
   scene.setTool(sim.tool);
@@ -235,7 +437,7 @@ function rewind() {
   highlightLine(-1);
 }
 
-async function cycleStart(turbo = false) {
+function cycleStart(turbo = false) {
   if (sim.status === 'run') {
     if (turbo) sim.turbo = true;
     return;
@@ -246,7 +448,7 @@ async function cycleStart(turbo = false) {
     return;
   }
   // reset / fim / alarme -> reinicia o programa
-  if (!(await prepare())) return;
+  prepare();
   rewind();
   sim.turbo = turbo;
   setStatus('run');
@@ -260,22 +462,29 @@ function feedHold() {
 }
 
 function doReset() {
+  if (!scene.stock) return;
   rewind();
   setStatus('reset');
   if (sim.result) scene.setPath(sim.events);
 }
 
-function raiseAlarm(msg, line) {
+function showAlarmBox(info) {
+  const box = $('alarm');
+  box.textContent = tr('S_ALARM_BOX', { n: info.line + 1, msg: info.fmt() });
+  box.classList.remove('hidden');
+}
+
+// fmt: função que devolve o texto do alarme no idioma atual
+function raiseAlarm(fmt, line) {
   setStatus('alarm');
   sim.turbo = false;
+  sim.alarmInfo = { fmt, line };
   scene.setToolAlarm(true);
-  const box = $('alarm');
-  box.textContent = `⚠ Alarme – linha ${line + 1}: ${msg}`;
-  box.classList.remove('hidden');
-  lineMarks.set(line, { cls: 'err', msg });
+  showAlarmBox(sim.alarmInfo);
+  lineMarks.set(line, { cls: 'err', fmt });
   updateGutter();
   highlightLine(line, true);
-  message(msg, 'err', line);
+  message(fmt, 'err', line);
 }
 
 // ---------------------------------------------------------------- simulação
@@ -293,19 +502,21 @@ function onEventStart(ev) {
     case 'toolchange':
       sim.tool = ev.state.tool;
       scene.setTool(sim.tool);
-      message(ev.message, 'info', ev.line);
+      msgCode(ev, 'info', ev.line);
       break;
     case 'pause':
-      message(ev.message, 'info', ev.line);
+      msgCode(ev, 'info', ev.line);
       setStatus('hold');
       return 'consumed';
     case 'alarm':
-      raiseAlarm(ev.message, ev.line);
+      raiseAlarm(() => formatMessage(app.lang, ev), ev.line);
       return 'stop';
-    case 'end':
+    case 'end': {
       setStatus('end');
-      message(`Fim de programa – tempo de usinagem ${fmtTime(sim.elapsed)}`, 'ok', ev.line);
+      const time = fmtTime(sim.elapsed);
+      msgKey('S_END_TIME', { time }, 'ok', ev.line);
       return 'consumed';
+    }
   }
   return null;
 }
@@ -318,9 +529,10 @@ function carveSegment(z0, r0, z1, r1, type, line) {
   const ch = scene.chuckInfo;
   // colisão com a placa (castanhas)
   if (Math.min(z0, z1) < ch.zFront && Math.min(r0, r1) < ch.jawOuter) {
-    raiseAlarm('Colisão da ferramenta com a placa!', line);
+    raiseAlarm(() => tr('A_CHUCK'), line);
     return false;
   }
+  if (!isSimulated(tool)) return true; // usinagem interna/furação: ainda sem remoção de material
   if (r0 >= stock.R0 && r1 >= stock.R0) return true;
   const L = Math.hypot(z1 - z0, r1 - r0);
   const n = Math.max(1, Math.ceil(L / (stock.h * 0.7)));
@@ -332,26 +544,25 @@ function carveSegment(z0, r0, z1, r1, type, line) {
     if (res.removed > 0) {
       if (type === 'rapid' && res.removed > 0.05) {
         sim.pos = { z, r };
-        raiseAlarm('Colisão: movimento rápido (G0) dentro do material', line);
+        raiseAlarm(() => tr('A_RAPID'), line);
         return false;
       }
       if (sim.rpm <= 0) {
         sim.pos = { z, r };
-        raiseAlarm('Colisão: ferramenta tocou a peça com o fuso parado', line);
+        raiseAlarm(() => tr('A_SPINDLE'), line);
         return false;
       }
       sim.chipAcc += res.removed;
     }
     if (res.parted >= 0) {
-      const mesh = stock.detach(res.parted, partMaterial);
-      scene.dropPart(mesh);
-      message('Peça separada (corte concluído)', 'ok', line);
+      scene.dropPart(stock.detach(res.parted, partMaterial));
+      msgKey('S_PARTED', {}, 'ok', line);
     }
   }
   return true;
 }
 
-// Move a ferramenta ao longo do evento do tempo ta até tb, removendo material
+// Move a ferramenta ao longo do evento até o tempo tb, removendo material
 function moveAlong(ev, tb) {
   const pts = ev.pts;
   let { z, r } = sim.pos;
@@ -381,10 +592,10 @@ function moveAlong(ev, tb) {
 function advance(dt) {
   let budget = sim.turbo ? Infinity : dt * sim.speed;
   const t0 = performance.now();
-  const ev0 = sim.events;
-  while (sim.status === 'run' && budget > 0 && sim.idx < ev0.length) {
+  const evs = sim.events;
+  while (sim.status === 'run' && budget > 0 && sim.idx < evs.length) {
     if (sim.turbo && performance.now() - t0 > 30) break;
-    const ev = ev0[sim.idx];
+    const ev = evs[sim.idx];
     if (sim.startedIdx !== sim.idx) {
       sim.startedIdx = sim.idx;
       sim.k = 0;
@@ -411,14 +622,14 @@ function advance(dt) {
       }
       sim.idx++;
       sim.t = 0;
-      const next = ev0[sim.idx];
+      const next = evs[sim.idx];
       if (sim.single && next && next.line !== ev.line) {
         setStatus('hold');
         highlightLine(next.line);
       }
     }
   }
-  if (sim.idx >= ev0.length && sim.status === 'run') setStatus('end');
+  if (sim.idx >= evs.length && sim.status === 'run') setStatus('end');
 }
 
 // ---------------------------------------------------------------- DRO
@@ -431,14 +642,14 @@ function updateDRO() {
   $('droDir').textContent = sim.dir === 3 ? '↻ M3' : sim.dir === 4 ? '↺ M4' : 'M5';
   $('droDir').style.color = sim.dir ? 'var(--ok)' : 'var(--muted)';
   if (ev && ev.type === 'rapid' && sim.status === 'run') {
-    $('droF').textContent = 'RÁPIDO';
+    $('droF').textContent = tr('rapid');
     $('droFu').textContent = '';
   } else if (st) {
     $('droF').textContent = st.feedPerRev ? st.F.toFixed(3) : Math.round(st.F);
     $('droFu').textContent = st.feedPerRev ? 'mm/rot' : 'mm/min';
   }
   $('droT').textContent = sim.tool;
-  $('droTn').textContent = TOOLS[sim.tool]?.name.split('–')[0] ?? '';
+  $('droTn').textContent = toolName(TOOLS[sim.tool], app.lang);
   if (st) {
     $('droG').textContent = st.motion === 33 ? 'G33' : `G${st.motion}`;
     $('droMode').textContent = `${st.abs ? 'G90' : 'G91'} ${st.feedPerRev ? 'G95' : 'G94'} ${st.css ? `G96 ${st.Vc}m/min` : 'G97'}`;
@@ -467,48 +678,31 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
-// ---------------------------------------------------------------- programas
-async function loadProgramList() {
-  const list = await (await fetch('/api/programs')).json();
-  const sel = $('programSelect');
-  sel.innerHTML = list.map((f) => `<option value="${f}">${f}</option>`).join('');
-  return list;
+// ---------------------------------------------------------------- conta
+async function logout() {
+  saveDraft();
+  await api('POST', '/api/auth/logout', {}).catch(() => {});
+  location.href = '/login.html';
 }
 
-async function openProgram(name) {
-  if (sim.status === 'run' || sim.status === 'hold') doReset();
-  const r = await fetch(`/api/programs/${encodeURIComponent(name)}`);
-  if (!r.ok) return message(`Não foi possível abrir ${name}`, 'err');
-  ta.value = await r.text();
-  $('progName').textContent = name;
-  lsSet(STORAGE_KEY, ta.value);
-  lsSet(STORAGE_KEY + ':name', name);
-  lineMarks = new Map();
-  updateGutter();
-  ta.scrollTop = 0;
-  if (stockFromHeader(ta.value)) applyStock();
-  else doReset();
-  clearMessages();
-  message(`Programa ${name} carregado. Pressione Cycle Start (ou Ctrl+Enter).`, 'info');
+function openPasswordDialog() {
+  $('pwCurrent').value = '';
+  $('pwNext').value = '';
+  $('pwError').textContent = '';
+  $('dlgPassword').showModal();
 }
 
-async function saveProgram() {
-  const cur = $('progName').textContent || 'meu_programa.mpf';
-  let name = prompt('Nome do arquivo (.mpf, .nc, .gcode ou .txt):', cur);
-  if (!name) return;
-  name = name.trim();
-  const r = await fetch(`/api/programs/${encodeURIComponent(name)}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'text/plain' },
-    body: ta.value,
-  });
-  const res = await r.json().catch(() => ({}));
-  if (!r.ok) return message(res.error || 'Erro ao salvar', 'err');
-  $('progName').textContent = name;
-  await loadProgramList();
-  $('programSelect').value = name;
-  message(`Salvo como ${name}`, 'ok');
-}
+$('formPassword').onsubmit = async (e) => {
+  e.preventDefault();
+  try {
+    await api('POST', '/api/auth/password', { current: $('pwCurrent').value, next: $('pwNext').value });
+    $('dlgPassword').close();
+    msgKey('password_changed', {}, 'ok');
+  } catch (ex) {
+    $('pwError').textContent = ex.code === 'login_failed' ? tr('login_failed') : errorText(ex);
+  }
+};
+$('pwCancel').onclick = () => $('dlgPassword').close();
 
 // ---------------------------------------------------------------- eventos de UI
 $('btnStart').onclick = () => cycleStart(false);
@@ -519,41 +713,83 @@ $('btnSingle').onclick = () => {
   sim.single = !sim.single;
   $('btnSingle').classList.toggle('on', sim.single);
 };
-$('btnLoad').onclick = () => openProgram($('programSelect').value);
-$('btnSave').onclick = saveProgram;
+$('btnOpen').onclick = openSelected;
+$('btnNew').onclick = newProgram;
+$('btnSave').onclick = () => saveProgram(false);
+$('btnSaveAs').onclick = () => saveProgram(true);
+$('btnDelete').onclick = deleteProgram;
+$('btnLogout').onclick = logout;
+$('btnPassword').onclick = openPasswordDialog;
+$('langSelect').onchange = (e) => {
+  setLang(e.target.value);
+  saveSettings({ lang: app.lang });
+};
+$('dialectSelect').onchange = (e) => saveSettings({ dialect: e.target.value });
 $('btnApplyStock').onclick = () => {
-  if (sim.status === 'run' || sim.status === 'hold') return message('Pare (Reset) antes de trocar a peça bruta', 'warn');
+  if (sim.status === 'run' || sim.status === 'hold') return msgKey('S_STOCK_BUSY', {}, 'warn');
   applyStock();
 };
 $('speed').oninput = (e) => {
-  sim.speed = SPEEDS[Number(e.target.value)];
+  const i = Number(e.target.value);
+  sim.speed = SPEEDS[i];
   $('speedVal').textContent = `${sim.speed}×`;
+  saveSettings({ speed: i });
 };
-$('chkPath').onchange = (e) => scene.setShowPath(e.target.checked);
-$('chkSection').onchange = (e) => scene.setSection(e.target.checked);
+$('chkPath').onchange = (e) => {
+  scene.setShowPath(e.target.checked);
+  saveSettings({ showPath: e.target.checked });
+};
+$('chkSection').onchange = (e) => {
+  scene.setSection(e.target.checked);
+  saveSettings({ section: e.target.checked });
+};
 document.querySelectorAll('[data-view]').forEach((b) => (b.onclick = () => scene.frameView(b.dataset.view)));
 
 // ---------------------------------------------------------------- início
 (async function init() {
-  $('speed').value = SPEEDS.indexOf(sim.speed);
+  applyI18n(app.lang);
+  let me;
+  try {
+    me = await api('GET', '/api/auth/me');
+  } catch {
+    return; // api() já redirecionou para o login
+  }
+  app.user = me.user;
+  $('userName').textContent = app.user.name;
+  $('linkAdmin').classList.toggle('hidden', app.user.role !== 'professor');
+
+  app.settings = await api('GET', '/api/settings').catch(() => ({}));
+  const s = app.settings;
+  if (s.stock) setStockInputs(s.stock);
+  if (s.dialect) $('dialectSelect').value = s.dialect;
+  const speedIdx = Number.isInteger(s.speed) ? Math.min(SPEEDS.length - 1, s.speed) : 3;
+  sim.speed = SPEEDS[speedIdx];
+  $('speed').value = speedIdx;
   $('speedVal').textContent = `${sim.speed}×`;
-  const list = await loadProgramList();
-  const saved = lsGet(STORAGE_KEY);
-  const savedName = lsGet(STORAGE_KEY + ':name');
-  if (saved) {
-    ta.value = saved;
-    $('progName').textContent = savedName || '';
-    if (savedName && list.includes(savedName)) $('programSelect').value = savedName;
-    stockFromHeader(saved);
-    applyStock();
+  $('chkPath').checked = s.showPath ?? true;
+  $('chkSection').checked = s.section ?? false;
+  scene.setShowPath($('chkPath').checked);
+  scene.setSection($('chkSection').checked);
+  setLang(LANGS.includes(s.lang) ? s.lang : app.lang);
+
+  await refreshPrograms();
+
+  const draft = store.get(draftKey());
+  if (draft && typeof draft.code === 'string') {
+    app.doc = draft.doc || { kind: 'new', id: null, name: '', savedCode: '' };
+    ta.value = draft.code;
     updateGutter();
-    message('Programa restaurado da última sessão. Pressione Cycle Start (ou Ctrl+Enter).', 'info');
-  } else if (list.length) {
+    updateDocTitle();
+    renderProgramSelect();
     applyStock();
-    await openProgram(list.includes('02_eixo_sinumerik.mpf') ? '02_eixo_sinumerik.mpf' : list[0]);
-    $('programSelect').value = $('progName').textContent;
+    msgKey('S_RESTORED', {}, 'info');
   } else {
     applyStock();
+    const first = app.examples.find((n) => n.startsWith('02_')) || app.examples[0];
+    if (first) {
+      $('programSelect').value = `ex:${first}`;
+      await openSelected();
+    }
   }
   setStatus('reset');
   requestAnimationFrame(frame);

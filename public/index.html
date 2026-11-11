@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Torno CNC Web</title>
+  <title>Torno CNC</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Ccircle cx=%228%22 cy=%228%22 r=%226%22 fill=%22%2319a7c9%22/%3E%3C/svg%3E" />
   <link rel="stylesheet" href="/css/style.css" />
   <script type="importmap">
@@ -17,18 +17,35 @@
 </head>
 <body>
   <header class="topbar">
-    <div class="brand"><span class="logo">⟳</span> Torno CNC <small>simulador web · MVP</small></div>
+    <div class="brand"><span class="logo">⟳</span> <span data-i18n="app_title"></span> <small data-i18n="app_subtitle"></small></div>
     <div class="prog">
-      <select id="programSelect" title="Programas de exemplo"></select>
-      <button id="btnLoad" class="btn">Abrir</button>
-      <button id="btnSave" class="btn">Salvar…</button>
+      <select id="programSelect"></select>
+      <button id="btnOpen" class="btn" data-i18n="open"></button>
+      <button id="btnNew" class="btn" data-i18n="new"></button>
+      <button id="btnSave" class="btn" data-i18n="save"></button>
+      <button id="btnSaveAs" class="btn" data-i18n="save_as"></button>
+      <button id="btnDelete" class="btn" data-i18n="delete"></button>
+    </div>
+    <div class="user">
+      <select id="langSelect" title="Idioma / Language">
+        <option value="pt">PT</option>
+        <option value="en">EN</option>
+      </select>
+      <a id="linkAdmin" class="btn hidden" href="/admin.html" data-i18n="students"></a>
+      <details class="menu">
+        <summary id="userName"></summary>
+        <div class="menu-list">
+          <button id="btnPassword" class="link" data-i18n="change_password"></button>
+          <button id="btnLogout" class="link" data-i18n="logout"></button>
+        </div>
+      </details>
     </div>
   </header>
 
   <main class="layout">
     <section class="left">
       <div class="panel-title">
-        <span>Programa <span id="progName" class="muted"></span></span>
+        <span><span data-i18n="program"></span> <span id="progName" class="muted"></span></span>
         <span id="cursorPos" class="muted"></span>
       </div>
       <div class="editor">
@@ -39,14 +56,25 @@
         </div>
       </div>
 
-      <details class="settings" open>
-        <summary>Peça bruta</summary>
+      <details class="settings">
+        <summary data-i18n="stock"></summary>
         <div class="grid">
-          <label>Diâmetro (mm)<input id="stockD" type="number" min="5" max="200" step="1" value="50" /></label>
-          <label>Comprimento fora da placa (mm)<input id="stockL" type="number" min="10" max="300" step="1" value="80" /></label>
-          <label>Face bruta em Z (mm)<input id="stockF" type="number" min="0" max="10" step="0.5" value="1" /></label>
-          <button id="btnApplyStock" class="btn">Aplicar</button>
+          <label><span data-i18n="stock_d"></span><input id="stockD" type="number" min="5" max="200" step="1" value="50" /></label>
+          <label><span data-i18n="stock_l"></span><input id="stockL" type="number" min="10" max="300" step="1" value="80" /></label>
+          <label><span data-i18n="stock_f"></span><input id="stockF" type="number" min="0" max="10" step="0.5" value="1" /></label>
+          <button id="btnApplyStock" class="btn" data-i18n="apply"></button>
+          <label><span data-i18n="dialect"></span>
+            <select id="dialectSelect">
+              <option value="sinumerik">Sinumerik (802D sl)</option>
+              <option value="fanuc">Fanuc</option>
+            </select>
+          </label>
         </div>
+      </details>
+
+      <details class="settings">
+        <summary data-i18n="turret"></summary>
+        <ol class="tools" id="toolList"></ol>
       </details>
 
       <div class="messages" id="messages"></div>
@@ -72,32 +100,45 @@
         <div class="block" id="currentBlock"></div>
         <div class="alarm hidden" id="alarm"></div>
         <div class="views">
-          <button data-view="iso" class="btn sm">Iso</button>
-          <button data-view="front" class="btn sm">Frente</button>
-          <button data-view="top" class="btn sm">Topo</button>
-          <label class="chk"><input type="checkbox" id="chkPath" checked /> Trajetória</label>
-          <label class="chk"><input type="checkbox" id="chkSection" /> Meio corte</label>
+          <button data-view="iso" class="btn sm" data-i18n="views_iso"></button>
+          <button data-view="front" class="btn sm" data-i18n="views_front"></button>
+          <button data-view="top" class="btn sm" data-i18n="views_top"></button>
+          <label class="chk"><input type="checkbox" id="chkPath" checked /> <span data-i18n="show_path"></span></label>
+          <label class="chk"><input type="checkbox" id="chkSection" /> <span data-i18n="half_section"></span></label>
         </div>
         <div class="legend">
-          <span><i style="background:#ffa63d"></i>G0 rápido</span>
-          <span><i style="background:#2fe0a0"></i>G1/G2/G3 avanço</span>
+          <span><i style="background:#ffa63d"></i><span data-i18n="legend_rapid"></span></span>
+          <span><i style="background:#2fe0a0"></i><span data-i18n="legend_feed"></span></span>
         </div>
       </div>
 
       <div class="softkeys">
-        <button id="btnStart" class="sk start" title="Cycle Start (Ctrl+Enter no editor)">▶ Cycle Start</button>
-        <button id="btnHold" class="sk">⏸ Feed Hold</button>
-        <button id="btnReset" class="sk reset">■ Reset</button>
-        <button id="btnSingle" class="sk toggle" title="Bloco a bloco">⏭ Bloco a bloco</button>
-        <button id="btnFinish" class="sk" title="Executa até o fim sem animação">⏩ Até o fim</button>
+        <button id="btnStart" class="sk start" title="Ctrl+Enter" data-i18n="sk_start"></button>
+        <button id="btnHold" class="sk" data-i18n="sk_hold"></button>
+        <button id="btnReset" class="sk reset" data-i18n="sk_reset"></button>
+        <button id="btnSingle" class="sk toggle" data-i18n="sk_single"></button>
+        <button id="btnFinish" class="sk" data-i18n="sk_finish"></button>
         <div class="speed">
-          <span>Velocidade</span>
+          <span data-i18n="speed"></span>
           <input id="speed" type="range" min="0" max="8" step="1" value="3" />
           <b id="speedVal">5×</b>
         </div>
       </div>
     </section>
   </main>
+
+  <dialog id="dlgPassword" class="card">
+    <form method="dialog" id="formPassword">
+      <h2 data-i18n="change_password"></h2>
+      <label><span data-i18n="current_password"></span><input id="pwCurrent" type="password" autocomplete="current-password" required /></label>
+      <label><span data-i18n="new_password"></span><input id="pwNext" type="password" autocomplete="new-password" minlength="6" required /></label>
+      <div class="error" id="pwError"></div>
+      <div class="row-end">
+        <button type="button" class="btn" id="pwCancel" data-i18n="cancel"></button>
+        <button type="submit" class="btn primary" data-i18n="save"></button>
+      </div>
+    </form>
+  </dialog>
 
   <script type="module" src="/js/main.js"></script>
 </body>

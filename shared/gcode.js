@@ -7,8 +7,9 @@
 //  - X programado em diâmetro (DIAMON / padrão Fanuc). Internamente usamos raio.
 //  - G2 = horário, G3 = anti-horário vistos com X para cima e Z para a direita.
 //  - Pontos dos eventos: [z, r, t, rpm], t = tempo acumulado (s) dentro do evento.
+//  - Mensagens saem como { code, params }; o texto vem de shared/i18n.js (PT/EN).
 
-import { getTool } from './tools.js';
+import { getTool, isSimulated } from './tools.js';
 
 export const DEFAULTS = {
   home: { x: 150, z: 100 }, // X em diâmetro
@@ -18,6 +19,7 @@ export const DEFAULTS = {
   spindleRampTime: 0.6, // s
   maxEvents: 200000,
   defaultTool: 1,
+  dialect: 'sinumerik', // 'sinumerik' | 'fanuc' (decide o significado de G70/G71)
 };
 
 const IGNORED_G = new Set([9, 17, 18, 19, 40, 53, 54, 55, 56, 57, 58, 59, 60, 64, 80, 500]);
@@ -25,7 +27,13 @@ const TWO_PI = Math.PI * 2;
 
 const fmt = (v) => Number(v.toFixed(3));
 
-export class GCodeAlarm extends Error {}
+export class GCodeAlarm extends Error {
+  constructor(code, params = {}) {
+    super(code);
+    this.code = code;
+    this.params = params;
+  }
+}
 
 export function parseProgram(text, options = {}) {
   const opt = { ...DEFAULTS, ...options, home: { ...DEFAULTS.home, ...(options.home || {}) } };
@@ -62,7 +70,8 @@ export function parseProgram(text, options = {}) {
   let alarm = null;
   let ended = false;
 
-  const warn = (line, msg) => warnings.push({ line, message: msg });
+  const warn = (line, code, params = {}) => warnings.push({ line, code, params });
+  const warnedTools = new Set();
 
   const rpmAt = (r) => {
     if (!st.spindle) return 0;
@@ -87,7 +96,7 @@ export function parseProgram(text, options = {}) {
   });
 
   const push = (ev) => {
-    if (events.length >= opt.maxEvents) throw new GCodeAlarm('Programa muito longo para o simulador');
+    if (events.length >= opt.maxEvents) throw new GCodeAlarm('E_TOO_LONG');
     ev.state = snapshot();
     events.push(ev);
     stats.totalTime += ev.duration || 0;
@@ -130,7 +139,7 @@ export function parseProgram(text, options = {}) {
       for (let k = 1; k <= n; k++) fine.push([z0 + ((z1 - z0) * k) / n, r0 + ((r1 - r0) * k) / n]);
     }
 
-    if (st.F <= 0) throw new GCodeAlarm('Avanço F não programado (F = 0)');
+    if (st.F <= 0) throw new GCodeAlarm('E_NO_FEED');
     let t = 0;
     pts.push([fine[0][0], fine[0][1], 0, rpmAt(fine[0][1])]);
     for (let i = 1; i < fine.length; i++) {
@@ -141,7 +150,7 @@ export function parseProgram(text, options = {}) {
       const pitchOrF = st.F;
       let feed; // mm/min
       if (kind === 'thread' || st.feedPerRev) {
-        if (rpm <= 0) throw new GCodeAlarm('Avanço por rotação com o fuso parado (falta M3/M4 ou S)');
+        if (rpm <= 0) throw new GCodeAlarm('E_SPINDLE_STOPPED');
         feed = pitchOrF * rpm;
       } else feed = pitchOrF;
       t += (l / feed) * 60;
@@ -159,15 +168,15 @@ export function parseProgram(text, options = {}) {
       const ra = Math.hypot(z0 - cz, r0 - cr);
       const rb = Math.hypot(z1 - cz, r1 - cr);
       if (Math.abs(ra - rb) > 0.05) {
-        throw new GCodeAlarm(`Ponto final do arco não está no círculo (diferença ${fmt(Math.abs(ra - rb))} mm)`);
+        throw new GCodeAlarm('E_ARC_END', { diff: fmt(Math.abs(ra - rb)) });
       }
     } else {
       const R = Math.abs(radius);
       const dz = z1 - z0;
       const dr = r1 - r0;
       const d = Math.hypot(dz, dr);
-      if (d < 1e-9) throw new GCodeAlarm('Arco com raio exige ponto final diferente do inicial');
-      if (d > 2 * R + 1e-3) throw new GCodeAlarm(`Raio do arco (${R}) muito pequeno para a distância ${fmt(d)} mm`);
+      if (d < 1e-9) throw new GCodeAlarm('E_ARC_SAME_POINT');
+      if (d > 2 * R + 1e-3) throw new GCodeAlarm('E_ARC_RADIUS_SMALL', { r: R, d: fmt(d) });
       const h = Math.sqrt(Math.max(0, R * R - (d * d) / 4));
       const mz = (z0 + z1) / 2;
       const mr = (r0 + r1) / 2;
@@ -215,7 +224,7 @@ export function parseProgram(text, options = {}) {
 
     const upper = src.toUpperCase();
     if (/\b(CYCLE\d+|MCALL|REPEAT|GOTO[FB]?|CALL|IF|WHILE|DEF|R\d+\s*=)/.test(upper)) {
-      warn(li, 'Ciclos, desvios e variáveis ainda não são suportados – bloco ignorado');
+      warn(li, 'W_UNSUPPORTED_BLOCK');
       push({ line: li, type: 'state', duration: 0 });
       continue;
     }
@@ -240,7 +249,7 @@ export function parseProgram(text, options = {}) {
       pos = re.lastIndex;
     }
     if (bad) {
-      alarm = { line: li, message: `Erro de sintaxe próximo a "${upper.slice(pos, pos + 12)}"` };
+      alarm = { line: li, code: 'E_SYNTAX', params: { near: upper.slice(pos, pos + 12) } };
       break;
     }
 
@@ -268,8 +277,8 @@ export function parseProgram(text, options = {}) {
       for (const k of kw) {
         if (k === 'DIAMON' || k === 'DIAM90') st.diam = true;
         else if (k === 'DIAMOF') st.diam = false;
-        else if (k === 'AC' || k === 'IC') warn(li, `${k} não suportado – ignorado`);
-        else throw new GCodeAlarm(`Instrução desconhecida "${k}"`);
+        else if (k === 'AC' || k === 'IC') warn(li, 'W_KEYWORD_IGNORED', { k });
+        else throw new GCodeAlarm('E_UNKNOWN_KEYWORD', { k });
       }
 
       // ---- Funções G ----
@@ -290,31 +299,31 @@ export function parseProgram(text, options = {}) {
           case 96: st.css = true; break;
           case 97: st.css = false; break;
           case 21: break;
-          case 20: throw new GCodeAlarm('Unidades em polegadas (G20) não suportadas');
+          case 20: throw new GCodeAlarm('E_INCH', { g: 20 });
           case 71:
-            if ('P' in val || 'Q' in val || 'U' in val) {
-              warn(li, 'Ciclo de desbaste G71 (Fanuc) ainda não suportado – bloco ignorado');
+            if (opt.dialect === 'fanuc') {
+              warn(li, 'W_FANUC_G71');
               Object.keys(val).forEach((k) => delete val[k]);
             }
             break; // Sinumerik: G71 = milímetros
           case 70:
-            throw new GCodeAlarm('G70 (polegadas no Sinumerik / ciclo de acabamento no Fanuc) não suportado');
+            throw new GCodeAlarm(opt.dialect === 'fanuc' ? 'E_FANUC_G70' : 'E_INCH', { g: 70 });
           case 50: case 92:
             if ('S' in val) {
               st.lims = val.S;
               delete val.S;
             }
             if ('X' in val || 'Z' in val) {
-              warn(li, `G${code} com X/Z (deslocamento de origem) ignorado`);
+              warn(li, 'W_G50_XZ', { g: code });
               delete val.X;
               delete val.Z;
             }
             break;
           case 28: home = true; break;
           case 41: case 42:
-            warn(li, 'Compensação de raio da ponta (G41/G42) ignorada no MVP'); break;
+            warn(li, 'W_TNRC'); break;
           default:
-            if (!IGNORED_G.has(code)) warn(li, `G${code} não suportado – ignorado`);
+            if (!IGNORED_G.has(code)) warn(li, 'W_G_UNSUPPORTED', { g: code });
         }
       }
       if (motion !== null) st.motion = motion;
@@ -333,11 +342,15 @@ export function parseProgram(text, options = {}) {
       if ('T' in val) {
         let t = val.T;
         if (t >= 100) t = Math.floor(t / 100); // Fanuc T0101
-        if (!Number.isFinite(t) || !getTool(t)) throw new GCodeAlarm(`Ferramenta T${val.T} não existe na tabela`);
+        if (!Number.isFinite(t) || !getTool(t)) throw new GCodeAlarm('E_TOOL_MISSING', { t: Number.isFinite(val.T) ? val.T : '?' });
         if (t !== st.tool) {
           st.tool = t;
           stats.tools.add(t);
-          push({ line: li, type: 'toolchange', duration: opt.toolChangeTime, message: `T${t}: ${getTool(t).name}` });
+          push({ line: li, type: 'toolchange', duration: opt.toolChangeTime, code: 'I_TOOLCHANGE', params: { t } });
+          if (!isSimulated(getTool(t)) && !warnedTools.has(t)) {
+            warnedTools.add(t);
+            warn(li, 'W_TOOL_NOT_SIMULATED', { t });
+          }
         }
       }
 
@@ -351,7 +364,7 @@ export function parseProgram(text, options = {}) {
         else if (code === 9) st.coolant = false;
       }
 
-      if (st.css && st.spindle && st.Vc <= 0) warn(li, 'G96 ativo sem velocidade de corte (S)');
+      if (st.css && st.spindle && st.Vc <= 0) warn(li, 'W_CSS_NO_S');
 
       // ---- Espera ----
       if (dwell) {
@@ -387,7 +400,7 @@ export function parseProgram(text, options = {}) {
           if (mo === 0) motionEvent(li, 'rapid', [[st.z, st.r], [z1, r1]]);
           else if (mo === 1) motionEvent(li, 'feed', [[st.z, st.r], [z1, r1]]);
           else if (mo === 33) {
-            if (st.css) warn(li, 'Rosca com G96 ativo: use G97 para roscar');
+            if (st.css) warn(li, 'W_THREAD_CSS');
             motionEvent(li, 'thread', [[st.z, st.r], [z1, r1]]);
           } else if (mo === 2 || mo === 3) {
             let poly;
@@ -397,7 +410,7 @@ export function parseProgram(text, options = {}) {
               poly = arcPoly(st.z, st.r, z1, r1, mo === 2, c, null);
             } else if (radius !== null) {
               poly = arcPoly(st.z, st.r, z1, r1, mo === 2, null, radius);
-            } else throw new GCodeAlarm('Arco sem centro (I/K) nem raio (CR=/R)');
+            } else throw new GCodeAlarm('E_ARC_NO_CENTER');
             motionEvent(li, 'feed', poly);
           }
           st.r = r1;
@@ -411,14 +424,14 @@ export function parseProgram(text, options = {}) {
           st.spindle = 0;
           push({ line: li, type: 'spindle', duration: opt.spindleRampTime });
         } else if (code === 0 || code === 1) {
-          push({ line: li, type: 'pause', duration: 0, message: `Parada programada M${code}` });
+          push({ line: li, type: 'pause', duration: 0, code: 'I_PAUSE', params: { m: code } });
         } else if (code === 2 || code === 30 || code === 17) {
           st.spindle = 0;
           st.coolant = false;
-          push({ line: li, type: 'end', duration: 0, message: 'Fim de programa' });
+          push({ line: li, type: 'end', duration: 0, code: 'I_END' });
           ended = true;
         } else if (![3, 4, 8, 9, 6].includes(code)) {
-          warn(li, `M${code} não suportado – ignorado`);
+          warn(li, 'W_M_UNSUPPORTED', { m: code });
         }
       }
 
@@ -426,12 +439,12 @@ export function parseProgram(text, options = {}) {
       if (!events.length || events[events.length - 1].line !== li) push({ line: li, type: 'state', duration: 0 });
     } catch (e) {
       if (!(e instanceof GCodeAlarm)) throw e;
-      alarm = { line: li, message: e.message };
+      alarm = { line: li, code: e.code, params: e.params };
     }
   }
 
-  if (alarm) push({ line: alarm.line, type: 'alarm', duration: 0, message: alarm.message });
-  else if (!ended) warn(lines.length - 1, 'Programa sem M30/M2 no final');
+  if (alarm) push({ line: alarm.line, type: 'alarm', duration: 0, code: alarm.code, params: alarm.params });
+  else if (!ended) warn(lines.length - 1, 'W_NO_END');
 
   if (!Number.isFinite(bounds.minZ)) Object.assign(bounds, { minZ: 0, maxZ: 0, maxR: 0 });
 

@@ -161,3 +161,59 @@ textarea#code[readonly] { color: #b9c6d2; }
   .right { height: 80vh; }
   .dro { transform: scale(.85); transform-origin: top left; }
 }
+
+/* ---------- conta, menus, login, diálogos ---------- */
+.user { display: flex; gap: 8px; align-items: center; }
+.menu { position: relative; }
+.menu summary { list-style: none; cursor: pointer; padding: 5px 10px; border: 1px solid var(--line); border-radius: 4px; background: var(--panel2); }
+.menu summary::-webkit-details-marker { display: none; }
+.menu summary::after { content: ' ▾'; color: var(--muted); }
+.menu-list {
+  position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; min-width: 170px;
+  background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; padding: 6px; display: grid;
+}
+.link { background: none; border: 0; color: var(--text); text-align: left; padding: 6px 8px; cursor: pointer; font: inherit; border-radius: 4px; }
+.link:hover { background: #2b3642; }
+a.btn { text-decoration: none; }
+.btn.primary { background: #157a8f; border-color: var(--accent); }
+.btn:disabled { opacity: .45; cursor: default; }
+.prog select { max-width: 260px; }
+.center-page { align-items: center; justify-content: center; overflow: auto; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 24px; color: var(--text); }
+.login { width: min(360px, calc(100vw - 32px)); display: grid; gap: 14px; }
+.login h1 { margin: 0; font-size: 18px; }
+.brand.big { font-size: 20px; }
+.card label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.card input, .card select { background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 8px; font: inherit; }
+.error { color: var(--err); min-height: 1.2em; font-size: 13px; }
+.lang-switch { text-align: center; color: var(--muted); font-size: 13px; }
+.lang-switch .link { display: inline; padding: 2px 4px; color: var(--accent); }
+dialog.card { padding: 20px; min-width: 320px; }
+dialog::backdrop { background: rgba(0, 0, 0, .55); }
+dialog form { display: grid; gap: 12px; }
+dialog h2 { margin: 0; font-size: 16px; }
+.row-end { display: flex; justify-content: flex-end; gap: 8px; }
+.tools { margin: 4px 0 0; padding-left: 22px; font-size: 12px; display: grid; gap: 2px; }
+.tools li::marker { color: var(--accent); font-weight: 700; }
+.tools .ns { color: var(--muted); font-style: italic; }
+.dirty { color: var(--warn); }
+
+/* ---------- painel do professor ---------- */
+body.scroll { overflow: auto; }
+.admin { max-width: 1100px; width: 100%; margin: 16px auto; padding: 0 16px; display: grid; gap: 16px; }
+.admin h2 { margin: 0 0 12px; font-size: 16px; }
+.create-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; align-items: end; }
+.row-between { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.table-wrap { overflow-x: auto; }
+table.users { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.users th, table.users td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); }
+table.users th { color: var(--muted); font-weight: 600; }
+table.users tr.inactive td { color: var(--muted); }
+.actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.ok-msg { color: var(--ok); min-height: 1.2em; font-size: 13px; }
+dialog.wide { width: min(900px, calc(100vw - 32px)); }
+.prog-view { display: grid; grid-template-columns: 220px 1fr; gap: 12px; margin-top: 12px; min-height: 360px; }
+.prog-list { list-style: none; margin: 0; padding: 0; overflow: auto; max-height: 60vh; border-right: 1px solid var(--line); }
+.prog-code { display: grid; grid-template-rows: auto 1fr; gap: 6px; }
+.prog-code textarea { width: 100%; min-height: 340px; background: #151b21; color: var(--text); border: 1px solid var(--line); border-radius: 4px; font: 13px/20px var(--mono); padding: 8px; resize: vertical; }
+@media (max-width: 640px) { .prog-view { grid-template-columns: 1fr; } .prog-list { border-right: 0; max-height: 160px; } }
