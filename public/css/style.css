@@ -236,3 +236,4 @@ dialog.wide { width: min(900px, calc(100vw - 32px)); }
 .turret-row b { color: var(--accent); }
 .turret-row select { padding: 3px 6px; font-size: 12px; }
 .turret .btn { justify-self: start; margin-top: 4px; }
+.btn.sm.on { border-color: var(--accent); background: #1f5f72; }

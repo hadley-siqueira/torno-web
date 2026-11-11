@@ -53,7 +53,11 @@ const sim = new Simulator({
     },
     pause: (ev) => msgCode(ev, 'info', ev.line),
     alarm: (a) => raiseAlarm(a),
-    end: (ev, elapsed) => msgKey('S_END_TIME', { time: fmtTime(elapsed) }, 'ok', ev.line),
+    end: (ev, elapsed) => {
+      msgKey('S_END_TIME', { time: fmtTime(elapsed) }, 'ok', ev.line);
+      // a peça separada caiu: mostra a peça pronta em destaque
+      if (sim.parts.length) setTimeout(() => sim.status === 'end' && showFinished(true), 1200);
+    },
     parted: (part, line) => {
       scene.dropPart(scene.stock.partMesh(part, partMaterial));
       msgKey('S_PARTED', {}, 'ok', line);
@@ -488,9 +492,23 @@ function prepare() {
   sim.load(res.events);
 }
 
+// "Peça pronta": só a peça fabricada (a última separada no corte, ou a que está na placa)
+function showFinished(on) {
+  scene.setFinished(on, on ? sim.parts.at(-1) || null : null);
+  $('btnFinished').classList.toggle('on', on);
+  if (on) msgKey('S_FINISHED', {}, 'info');
+}
+
+function setView(view) {
+  scene.frameView(view);
+  document.querySelectorAll('[data-view]').forEach((b) => b.classList.toggle('on', b.dataset.view === scene.view));
+}
+
 // Volta a cena ao estado inicial (o Simulator já foi rebobinado)
 function resetScene() {
   ui.alarmInfo = null;
+  if (scene.finished) showFinished(false);
+  $('btnFinished').classList.remove('on');
   scene.clearFalling();
   scene.setTool(sim.tool);
   scene.setToolPos(sim.pos.z, sim.pos.r);
@@ -658,7 +676,8 @@ $('chkSection').onchange = (e) => {
   scene.setSection(e.target.checked);
   saveSettings({ section: e.target.checked });
 };
-document.querySelectorAll('[data-view]').forEach((b) => (b.onclick = () => scene.frameView(b.dataset.view)));
+document.querySelectorAll('[data-view]').forEach((b) => (b.onclick = () => setView(b.dataset.view)));
+$('btnFinished').onclick = () => showFinished(!scene.finished);
 
 // ---------------------------------------------------------------- início
 (async function init() {

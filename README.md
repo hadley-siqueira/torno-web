@@ -108,7 +108,17 @@ Usinagem externa, furação (só em X0) e usinagem interna removem material; ala
 para broca fora do centro e corpo da barra de mandrilar batendo no material.
 
 Exemplos em `programs/`: 01 básico, 02 eixo escalonado, 03 ponta esférica (Fanuc), 04 pino roscado M20,
-05 bucha (furação e mandrilamento), 06 peça completa (usa as 8 ferramentas).
+05 bucha (furação e mandrilamento), 06 peça completa (usa as 8 ferramentas), 07 eixo perfilado (gola côncava).
+
+### Vistas (inspiradas no SINUMERIK Operate)
+
+| Botão | O que mostra |
+|---|---|
+| **3D** | Vista em perspectiva; arraste para girar, roda do mouse para aproximar |
+| **Lateral** | Vista 2D em corte (perfil da peça, com furos), como a "Side view" / "Half cut view" |
+| **Face** | Olhando a peça pelo eixo, como a "Face view" |
+| **Meio corte** | Corta a peça ao meio no 3D para ver o interior |
+| **Peça pronta** | Só a peça fabricada, sem máquina; abre sozinha quando a peça é separada no corte |
 
 O cabeçalho `; Bruto: D50 x 80 mm, face em Z1` ajusta a peça bruta automaticamente ao abrir o programa.
 

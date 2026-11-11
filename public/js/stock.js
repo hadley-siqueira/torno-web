@@ -1,12 +1,13 @@
 // Peça bruta com malha 3D: estende o modelo puro (shared/stock-model.js) com
-// as superfícies externa e interna, a face, a vista em corte e a malha da peça
-// separada no corte. A malha é refeita a partir dos perfis sempre que eles mudam.
+// as superfícies externa e interna, as faces, a vista em corte e a malha da
+// peça separada no corte. A malha é refeita a partir dos perfis quando eles mudam.
 
 import * as THREE from 'three';
-import { StockModel } from '/shared/stock-model.js';
+import { StockModel, GONE } from '/shared/stock-model.js';
 
 const RAW = new THREE.Color(0x6d6458);
 const CUT = new THREE.Color(0xd8dce2);
+const INNER = new THREE.Color(0x8e98a6); // interior mais escuro: dá contraste aos furos
 
 export class Stock extends StockModel {
   constructor(params) {
@@ -14,6 +15,29 @@ export class Stock extends StockModel {
     this.seg = params.segments ?? 72;
     this.buildMesh();
     this.buildSection();
+  }
+
+  /**
+   * Cria uma peça (sem trecho preso na placa) a partir de um perfil
+   * { z: [...], r: [...], ri: [...] }, como o devolvido por separate().
+   */
+  static fromProfile(part) {
+    const n = part.z.length;
+    const z0 = part.z[0];
+    const z1 = part.z[n - 1];
+    const s = new Stock({ diameter: 2 * Math.max(...part.r), length: Math.max(z1 - z0, 0.1), faceZ: z1, clamp: 0 });
+    let j = 0;
+    for (let i = 0; i < s.N; i++) {
+      const z = s.zAt(i);
+      while (j < n - 2 && part.z[j + 1] < z) j++;
+      const f = Math.min(1, Math.max(0, (z - part.z[j]) / (part.z[j + 1] - part.z[j] || 1)));
+      s.r[i] = part.r[j] + (part.r[j + 1] - part.r[j]) * f;
+      s.ri[i] = part.ri[j] + (part.ri[j + 1] - part.ri[j]) * f;
+      s.cut[i] = 3;
+    }
+    s.dirty = true;
+    s.updateGeometry();
+    return s;
   }
 
   /** Malha da peça separada no corte (perfil vindo de separate()). */
@@ -28,8 +52,8 @@ export class Stock extends StockModel {
   }
 
   // ---------- Malha de revolução ----------
-  // Anéis: 0 = trecho preso na placa; 1..N = externo; N+1..2N = interno;
-  // depois os anéis das tampas (face direita externa/interna e tampa esquerda)
+  // Anéis: 0 = início (trecho preso na placa, ou ponta esquerda da peça);
+  // 1..N = externo; N+1..2N = interno; depois as faces direita e esquerda (coroas)
   buildMesh() {
     const S = this.seg;
     const N = this.N;
@@ -39,8 +63,9 @@ export class Stock extends StockModel {
     this.ringInner = N + 1;
     this.capRo = 2 * N + 1;
     this.capRi = 2 * N + 2;
-    this.capL = 2 * N + 3;
-    const total = (2 * N + 4) * RV + 1;
+    this.capLo = 2 * N + 3;
+    this.capLi = 2 * N + 4;
+    const total = (2 * N + 5) * RV;
     this.pos = new Float32Array(total * 3);
     this.nor = new Float32Array(total * 3);
     this.col = new Float32Array(total * 3);
@@ -54,6 +79,10 @@ export class Stock extends StockModel {
     // Leve variação angular na cor bruta: deixa a rotação visível
     this.rawTint = new Float32Array(RV);
     for (let j = 0; j <= S; j++) this.rawTint[j] = 0.85 + 0.15 * Math.sin((j / S) * Math.PI * 6) ** 2;
+    // Perfis efetivamente desenhados (ver renderProfiles)
+    this.zz = new Float32Array(N);
+    this.ro = new Float32Array(N);
+    this.rin = new Float32Array(N);
 
     const idx = [];
     const strip = (ra, rb, flip) => {
@@ -64,17 +93,10 @@ export class Stock extends StockModel {
         else idx.push(a, b, a + 1, b, b + 1, a + 1);
       }
     };
-    for (let i = 0; i < N; i++) strip(i, i + 1, false); // trecho preso + externo
+    for (let i = 0; i < N; i++) strip(i, i + 1, false); // início + externo
     for (let i = 0; i < N - 1; i++) strip(this.ringInner + i, this.ringInner + i + 1, true); // interno
-    // face direita (coroa entre externo e interno)
-    for (let j = 0; j < S; j++) {
-      const o = this.capRo * RV + j;
-      const ii = this.capRi * RV + j;
-      idx.push(ii, o + 1, o, ii, ii + 1, o + 1);
-    }
-    // tampa esquerda (dentro da placa)
-    const c = this.capL * RV + RV;
-    for (let j = 0; j < S; j++) idx.push(c, this.capL * RV + j, this.capL * RV + j + 1);
+    strip(this.capRi, this.capRo, true); // face direita (coroa)
+    strip(this.capLi, this.capLo, false); // face esquerda (coroa)
 
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage));
@@ -111,34 +133,76 @@ export class Stock extends StockModel {
     }
   }
 
+  /**
+   * Onde não há material, os anéis externo e interno "colam" no anel do vizinho
+   * com material (mesmo z e raio = furo do vizinho). Assim a face de uma peça
+   * furada vira uma coroa e as faixas sem material ficam com área zero.
+   * (Antes o externo fechava no eixo e tampava a entrada do furo.)
+   */
+  renderProfiles() {
+    const { r, ri, N, zz, ro, rin } = this;
+    const solid = (i) => r[i] - ri[i] >= GONE;
+    const left = new Int32Array(N);
+    const right = new Int32Array(N);
+    let last = -1;
+    for (let i = 0; i < N; i++) {
+      if (solid(i)) last = i;
+      left[i] = last;
+    }
+    last = -1;
+    for (let i = N - 1; i >= 0; i--) {
+      if (solid(i)) last = i;
+      right[i] = last;
+    }
+    for (let i = 0; i < N; i++) {
+      if (solid(i)) {
+        zz[i] = this.zAt(i);
+        ro[i] = r[i];
+        rin[i] = ri[i];
+        continue;
+      }
+      const L = left[i];
+      const R = right[i];
+      if (L < 0 && R < 0) {
+        zz[i] = this.zAt(i);
+        ro[i] = rin[i] = 0;
+        continue;
+      }
+      const k = L < 0 ? R : R < 0 ? L : i - L <= R - i ? L : R;
+      zz[i] = this.zAt(k === L ? k + 1 : k - 1); // o primeiro ponto vazio ao lado do vizinho
+      ro[i] = rin[i] = ri[k];
+    }
+  }
+
   updateGeometry(force = false) {
     if (!this.dirty && !force) return false;
     this.dirty = false;
-    const { r, ri, N, h } = this;
-    const zClamp = this.zLeft - this.clamp;
+    this.renderProfiles();
+    const { N, h, zz, ro, rin } = this;
+    const clamped = this.clamp > 0;
+    const z0 = clamped ? this.zLeft - this.clamp : this.zAt(0);
+    const r0 = clamped ? this.R0 : ro[0];
+    const ri0 = clamped ? 0 : rin[0];
 
-    this.writeRing(0, zClamp, this.R0, 0, 1, RAW, true);
+    this.writeRing(0, z0, r0, 0, 1, clamped ? RAW : CUT, clamped);
     for (let i = 0; i < N; i++) {
       const ip = Math.max(0, i - 1);
       const inx = Math.min(N - 1, i + 1);
       // externo: normal para fora
-      let s = (r[inx] - r[ip]) / (2 * h);
+      let s = (ro[inx] - ro[ip]) / (2 * h);
       let a = 1 / Math.sqrt(1 + s * s);
       const cutO = this.cut[i] & 1;
-      this.writeRing(this.ringOuter + i, this.zAt(i), r[i], -s * a, a, cutO ? CUT : RAW, !cutO);
+      this.writeRing(this.ringOuter + i, zz[i], ro[i], -s * a, a, cutO ? CUT : RAW, !cutO);
       // interno: normal para o eixo
-      s = (ri[inx] - ri[ip]) / (2 * h);
+      s = (rin[inx] - rin[ip]) / (2 * h);
       a = 1 / Math.sqrt(1 + s * s);
-      this.writeRing(this.ringInner + i, this.zAt(i), ri[i], s * a, -a, CUT, false);
+      this.writeRing(this.ringInner + i, zz[i], rin[i], s * a, -a, INNER, false);
     }
     const faceCut = this.cut[N - 1] ? CUT : RAW;
-    this.writeRing(this.capRo, this.faceZ, r[N - 1], 1, 0, faceCut, false);
-    this.writeRing(this.capRi, this.faceZ, ri[N - 1], 1, 0, faceCut, false);
-    this.writeRing(this.capL, zClamp, this.R0, -1, 0, RAW, false);
-    const c = (this.capL * this.RV + this.RV) * 3;
-    this.pos.set([zClamp, 0, 0], c);
-    this.nor.set([-1, 0, 0], c);
-    this.col.set([RAW.r, RAW.g, RAW.b], c);
+    this.writeRing(this.capRo, zz[N - 1], ro[N - 1], 1, 0, faceCut, false);
+    this.writeRing(this.capRi, zz[N - 1], rin[N - 1], 1, 0, faceCut, false);
+    this.writeRing(this.capLo, z0, r0, -1, 0, clamped ? RAW : CUT, false);
+    this.writeRing(this.capLi, z0, ri0, -1, 0, clamped ? RAW : CUT, false);
 
     const g = this.geometry;
     g.attributes.position.needsUpdate = true;
@@ -184,7 +248,8 @@ export class Stock extends StockModel {
         p[o + 2] = 0;
       }
     };
-    put(0, this.zLeft - this.clamp, this.R0, 0);
+    if (this.clamp > 0) put(0, this.zLeft - this.clamp, this.R0, 0);
+    else put(0, this.zAt(0), this.r[0], Math.min(this.ri[0], this.r[0]));
     for (let i = 0; i < this.N; i++) put(i + 1, this.zAt(i), this.r[i], Math.min(this.ri[i], this.r[i]));
     this.section.geometry.attributes.position.needsUpdate = true;
   }

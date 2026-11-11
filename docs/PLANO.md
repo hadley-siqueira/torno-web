@@ -73,7 +73,8 @@ Ciclos do **802D sl** (são estes que os alunos usam na máquina):
 - [ ] **Compensação de raio da ponta** G41/G42 (perfil correto em cones e raios).
 - [ ] **Subprogramas e variáveis básicas:** subprogramas (`.SPF`, chamada por nome/`L`), parâmetros `R`,
       rótulos e `GOTOF`/`GOTOB`, o mínimo usado nos ciclos do 802D sl.
-- [ ] **Vista 2D plana** (torno visto de cima, com zoom e medição), além da 3D e do meio corte.
+- [x] **Vistas** (2026-11-11): 3D, Lateral (2D em corte), Face, Meio corte e Peça pronta, como no SINUMERIK Operate.
+- [ ] **Vistas que faltam:** duas janelas, medição na vista e ampliação por região.
 - [ ] **Editor melhor:** destaque de sintaxe, erros marcados enquanto digita e ajuda ao passar o mouse sobre G/M.
 - [ ] **Formulários de ciclo** (preencher os parâmetros e gerar a linha do ciclo), no espírito do
       programGUIDE. Fase posterior.

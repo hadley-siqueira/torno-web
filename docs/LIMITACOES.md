@@ -30,6 +30,7 @@ O planejamento geral está em [PLANO.md](PLANO.md).
 | **Furação só em X0** | Broca fora do centro gera alarme (correto para torno sem ferramenta acionada) | — |
 | **Peça é sólido de revolução** | Sem fresamento, eixo C ou ferramentas acionadas | Fora do escopo atual |
 | Resolução do perfil: passo de 0,05 mm (até 2000 amostras) | Detalhes menores que isso somem | Aumentar amostras se for preciso (custo de desempenho) |
+| A ponta avança em passos de ~0,035 mm | Em perfis muito inclinados (ex.: gola do exemplo 07) o diâmetro sai até ~0,1 mm maior | Passos menores nos trechos inclinados, ou calcular a interseção exata da aresta com cada amostra |
 
 ## Colisões (`public/js/main.js`, `stock.js`)
 
@@ -43,6 +44,9 @@ O planejamento geral está em [PLANO.md](PLANO.md).
 
 ## Cena 3D (`public/js/scene.js`)
 
+- Vistas existentes: 3D, Lateral (2D em corte), Face, Meio corte e Peça pronta. Faltam, em relação ao
+  SINUMERIK Operate: duas janelas lado a lado, espaço de máquina, registro simultâneo com a máquina,
+  ampliação por região e medição na vista.
 - A torre é um bloco que acompanha a ferramenta ativa; não gira na troca e não mostra as 8 ferramentas montadas.
 - Ferramentas são silhuetas extrudadas (brocas e barras aparecem "achatadas").
 - Contraponto, porta, refrigeração e luzes da máquina não existem.

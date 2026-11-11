@@ -1,0 +1,184 @@
+; EIXO PERFILADO - gola concava, rosca e furo de centro
+; Bruto: D60 x 95 mm, face em Z1
+; Torre padrao: T1 desbaste, T2 acabamento 35 (perfil), T3 bedame, T4 rosca externa,
+;               T5 broca de centro, T6 broca D16, T7 barra de mandrilar
+; Peca final (75 mm): rosca M30x1,5 com canal, colar D36, gola concava (R22,1 e R18,722)
+; ate o pescoco D26, cone D44/D50, corpo D56 com chanfro
+; Os raios da gola: centro em Z-36; R22,1 liga D36(Z-22) a D26(Z-36) e
+; R18,722 liga D26(Z-36) a D44(Z-52) - os dois tangentes no fundo da gola
+G18 G90 G95 DIAMON
+G54
+
+; ========== FACEAMENTO E DESBASTE EM DEGRAUS (T1) ==========
+T1 D1
+G96 S200 LIMS=2500 M3
+G0 X64 Z0
+G1 X-1.6 F0.15
+G0 Z2
+; corpo D56 (sobremetal 0,5 no diametro)
+G0 X56.5
+G1 Z-75.9 F0.25
+G1 X61
+G0 Z2
+; cone D50/D44
+G0 X53.5
+G1 Z-57.9
+G1 X57
+G0 Z2
+G0 X50.5
+G1 Z-57.9
+G1 X54
+G0 Z2
+G0 X47.5
+G1 Z-54.9
+G1 X51
+G0 Z2
+G0 X44.5
+G1 Z-51.9
+G1 X48
+G0 Z2
+; degraus sobre a gola (cada um termina antes da curva)
+G0 X41.5
+G1 Z-50.9
+G1 X45
+G0 Z2
+G0 X38.5
+G1 Z-49.6
+G1 X42
+G0 Z2
+G0 X36.5
+G1 Z-48.6
+G1 X39
+G0 Z2
+; ponta D30 ate o colar
+G0 X33
+G1 Z-19.9
+G1 X37
+G0 Z2
+G0 X30.5
+G1 Z-19.9
+G1 X33
+G0 X150 Z100
+
+; ========== DESBASTE DA GOLA POR COPIA DO PERFIL (T2) ==========
+; o mesmo perfil deslocado em X: +8, +5, +2 e +0,5 no diametro
+T2 D1
+G96 S220 LIMS=3000 M3
+G0 X44 Z-19
+G1 Z-22 F0.2
+G2 X34 Z-36 CR=22.1
+G2 X52 Z-52 CR=18.722
+G0 X54
+G0 Z-19
+G0 X41
+G1 Z-22
+G2 X31 Z-36 CR=22.1
+G2 X49 Z-52 CR=18.722
+G0 X54
+G0 Z-19
+G0 X38
+G1 Z-22
+G2 X28 Z-36 CR=22.1
+G2 X46 Z-52 CR=18.722
+G0 X54
+G0 Z-19
+G0 X36.5
+G1 Z-22
+G2 X26.5 Z-36 CR=22.1
+G2 X44.5 Z-52 CR=18.722
+G0 X54
+G0 X150 Z100
+
+; ========== ACABAMENTO DO PERFIL COMPLETO (T2) ==========
+G96 S260 LIMS=3500 M3
+G0 X25 Z1
+G1 X30 Z-1.5 F0.1         ; chanfro 1,5 x 45
+G1 Z-20
+G1 X36                    ; face do colar
+G1 Z-22
+G2 X26 Z-36 CR=22.1       ; gola: descida
+G2 X44 Z-52 CR=18.722     ; gola: subida
+G1 X50 Z-58               ; cone
+G1 X54
+G1 X56 Z-59               ; chanfro 1 x 45
+G1 Z-75
+G1 X61
+G0 X150 Z100
+
+; ========== CANAL DE SAIDA DA ROSCA 4 x D27 (T3) ==========
+T3 D1
+G97 S800 M3
+G0 X33 Z-20               ; Z-20 a Z-17
+G1 X27 F0.05
+G0 X33
+G0 Z-19                   ; Z-19 a Z-16
+G1 X27
+G0 X33
+G0 X150 Z100
+
+; ========== ROSCA M30 x 1,5 (T4) ==========
+; nucleo: 30 - 2 x 0,92 = D28,16
+T4 D1
+G97 S600 M3
+G0 X33 Z5
+G0 X29.4
+G33 Z-17.5 K1.5
+G0 X33
+G0 Z5
+G0 X29.0
+G33 Z-17.5 K1.5
+G0 X33
+G0 Z5
+G0 X28.7
+G33 Z-17.5 K1.5
+G0 X33
+G0 Z5
+G0 X28.45
+G33 Z-17.5 K1.5
+G0 X33
+G0 Z5
+G0 X28.3
+G33 Z-17.5 K1.5
+G0 X33
+G0 Z5
+G0 X28.16
+G33 Z-17.5 K1.5
+G0 X33
+G0 Z5
+G0 X28.16
+G33 Z-17.5 K1.5
+G0 X33
+G0 X150 Z100
+
+; ========== FURO DE CENTRO E FURO D16 x 10 (T5, T6) ==========
+T5 D1
+G97 S1500 M3
+G0 X0 Z5
+G1 Z-4 F0.08
+G0 Z5
+G0 X150 Z100
+T6 D1
+G97 S600 M3
+G0 X0 Z5
+G1 Z-14.8 F0.12           ; ponta da broca: furo cheio ate Z-10
+G0 Z5
+G0 X150 Z100
+
+; ========== CHANFRO DE ENTRADA DO FURO (T7) ==========
+T7 D1
+G96 S150 LIMS=2000 M3
+G0 X20 Z1
+G1 X16 Z-1 F0.1           ; chanfro 1 x 45
+G1 X14
+G0 Z5
+G0 X150 Z100
+
+; ========== CORTE (T3) ==========
+T3 D1
+G97 S700 M3
+G0 X64 Z-78
+G1 X-1 F0.05
+G0 X150
+G0 Z100
+M5
+M30

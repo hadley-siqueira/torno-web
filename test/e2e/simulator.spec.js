@@ -105,3 +105,27 @@ test('peça bruta lida do cabeçalho do programa', async ({ page }) => {
   await expect(page.locator('#stockD')).toHaveValue('40');
   await expect(page.locator('#stockL')).toHaveValue('80');
 });
+
+test('vistas Lateral/Face e "Peça pronta" ao fim do corte', async ({ page }) => {
+  await page.selectOption('#programSelect', 'ex:05_bucha.mpf');
+  await page.click('#btnOpen');
+  await runToEnd(page);
+  await expect(status(page)).toHaveText('FIM');
+  // a peça separada aparece sozinha em destaque
+  await expect(page.locator('#btnFinished')).toHaveClass(/on/);
+  await expect(page.locator('#messages')).toContainText('Peça pronta em destaque');
+  for (const view of ['side', 'face', 'iso']) {
+    await page.click(`[data-view=${view}]`);
+    await expect(page.locator(`[data-view=${view}]`)).toHaveClass(/on/);
+  }
+  const png = await page.locator('#viewport canvas').screenshot();
+  const distinct = new Set();
+  for (let i = 0; i < png.length; i += 997) distinct.add(png[i]);
+  expect(distinct.size).toBeGreaterThan(20);
+  // volta à máquina e o Reset limpa o destaque
+  await page.click('#btnFinished');
+  await expect(page.locator('#btnFinished')).not.toHaveClass(/on/);
+  await page.click('#btnFinished');
+  await page.click('#btnReset');
+  await expect(page.locator('#btnFinished')).not.toHaveClass(/on/);
+});

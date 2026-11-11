@@ -28,10 +28,22 @@ export class LatheScene {
     const pmrem = new THREE.PMREMGenerator(renderer);
     this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 
-    this.camera = new THREE.PerspectiveCamera(35, 1, 1, 5000);
+    // Duas câmeras: perspectiva (3D) e ortográfica (vistas 2D, como num desenho técnico)
+    this.persp = new THREE.PerspectiveCamera(35, 1, 1, 5000);
+    this.ortho = new THREE.OrthographicCamera(-100, 100, 100, -100, -5000, 5000);
+    this.camera = this.persp;
     this.controls = new OrbitControls(this.camera, renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.12;
+    this.view = 'iso';
+    this.finished = false;
+    // Luz presa à câmera: ilumina o que se está olhando (inclusive dentro de furos)
+    for (const cam of [this.persp, this.ortho]) {
+      const head = new THREE.DirectionalLight(0xffffff, 0.9);
+      head.position.set(0, 0, 1);
+      cam.add(head);
+      this.scene.add(cam);
+    }
 
     this.scene.add(new THREE.HemisphereLight(0xdfe8f5, 0x30353c, 0.6));
     const sun = new THREE.DirectionalLight(0xffffff, 1.4);
@@ -59,8 +71,17 @@ export class LatheScene {
     this.renderer.setSize(w, h, false);
     this.renderer.domElement.style.width = '100%';
     this.renderer.domElement.style.height = '100%';
-    this.camera.aspect = w / h;
-    this.camera.updateProjectionMatrix();
+    this.aspect = w / h;
+    this.persp.aspect = this.aspect;
+    this.persp.updateProjectionMatrix();
+    if (this.orthoHalf) this.setOrthoSize(this.orthoHalf);
+  }
+
+  setOrthoSize(halfH) {
+    this.orthoHalf = halfH;
+    const halfW = halfH * (this.aspect || 1);
+    Object.assign(this.ortho, { left: -halfW, right: halfW, top: halfH, bottom: -halfH });
+    this.ortho.updateProjectionMatrix();
   }
 
   // ---------- Peça e placa ----------
@@ -75,6 +96,7 @@ export class LatheScene {
     this.spindleGroup.add(this.stock.mesh);
     this.scene.add(this.stock.section);
     this.buildMachine();
+    this.setFinished(false);
     this.setSection(this.sectionOn);
     return this.stock;
   }
@@ -139,7 +161,7 @@ export class LatheScene {
     this.bedY = bedY;
     this.machineGroup.add(head, nose, bed, tray);
 
-    this.frameView('iso');
+    this.frameView(this.view);
   }
 
   // ---------- Ferramenta ----------
@@ -260,17 +282,26 @@ export class LatheScene {
   setShowPath(on) {
     this.showPath = on;
     if (this.pathPreview) {
-      this.pathPreview.visible = on;
-      this.pathDone.visible = on;
+      this.pathPreview.visible = on && !this.finished;
+      this.pathDone.visible = on && !this.finished;
     }
   }
 
   setSection(on) {
     this.sectionOn = !!on;
-    if (!this.stock) return;
-    this.stock.material.clippingPlanes = on ? [this.clipPlane] : [];
-    this.stock.material.needsUpdate = true;
-    this.stock.section.visible = !!on;
+    this.applySection();
+  }
+
+  // O corte vale na opção "Meio corte" e sempre na vista lateral (2D)
+  applySection() {
+    const on = this.sectionOn || this.view === 'side';
+    for (const st of [this.stock, this.finishedStock]) {
+      if (!st) continue;
+      st.material.clippingPlanes = on ? [this.clipPlane] : [];
+      st.material.needsUpdate = true;
+      st.section.visible = on;
+    }
+    if (this.stock && this.finished && this.finishedStock) this.stock.section.visible = false;
   }
 
   // ---------- Cavacos ----------
@@ -363,20 +394,83 @@ export class LatheScene {
     this.spindleGroup.rotation.x = this.spindleAngle;
   }
 
-  // ---------- Câmera ----------
-  frameView(name) {
+  // ---------- Peça pronta ----------
+  /**
+   * Mostra só a peça fabricada (sem máquina, ferramenta e trajetória).
+   * part: perfil da peça separada no corte; sem ele, mostra a peça como está na placa.
+   */
+  setFinished(on, part = null) {
+    this.finished = !!on;
+    if (this.finishedStock) {
+      this.scene.remove(this.finishedStock.mesh, this.finishedStock.section);
+      this.finishedStock.dispose();
+      this.finishedStock = null;
+    }
+    if (on && part) {
+      this.finishedStock = Stock.fromProfile(part);
+      this.scene.add(this.finishedStock.mesh, this.finishedStock.section);
+    }
+    const machine = !on;
+    this.machineGroup.visible = machine;
+    if (this.chuckGroup) this.chuckGroup.visible = machine;
+    this.toolGroup.visible = machine;
+    this.chips.visible = machine;
+    for (const m of this.falling) m.visible = machine;
+    if (this.stock) this.stock.mesh.visible = machine || !part;
+    this.setShowPath(this.showPath ?? true);
+    this.applySection();
+    this.frameView(this.view);
+  }
+
+  // ---------- Câmera e vistas ----------
+  // Vistas como no SINUMERIK: 'iso' (3D), 'side' (lateral, 2D em corte), 'face' (de frente para a face)
+  frameView(name = this.view) {
     if (!this.stock) return;
-    const s = this.stock;
-    const target = new THREE.Vector3((s.zLeft + s.faceZ) / 2 + 35, 25, 0);
-    const dist = Math.max(s.length + 160, s.R0 * 4 + 200) * 1.45;
-    const dir = {
-      iso: new THREE.Vector3(0.35, 0.4, 1),
-      front: new THREE.Vector3(0, 0, 1),
-      top: new THREE.Vector3(0, 1, 0.0001),
-    }[name] || new THREE.Vector3(0.45, 0.55, 1);
-    this.camera.position.copy(target).addScaledVector(dir.normalize(), dist);
-    this.controls.target.copy(target);
+    this.view = name === 'front' ? 'side' : name === 'top' ? 'iso' : name;
+    // caixa do que se quer enquadrar
+    let zMin;
+    let zMax;
+    let rMax;
+    const fs = this.finishedStock;
+    if (this.finished) {
+      const s = fs || this.stock;
+      zMin = fs ? s.zAt(0) : s.zLeft;
+      zMax = s.faceZ;
+      rMax = s.R0;
+    } else {
+      const s = this.stock;
+      zMin = s.zLeft - s.clamp - 20;
+      zMax = s.faceZ + 60;
+      rMax = s.R0 + 30;
+    }
+    const cz = (zMin + zMax) / 2;
+    const len = zMax - zMin;
+    const ortho = this.view !== 'iso';
+    this.camera = ortho ? this.ortho : this.persp;
+    this.controls.object = this.camera;
+    this.controls.enableRotate = !ortho;
+    this.camera.zoom = 1;
+
+    if (this.view === 'side') {
+      this.setOrthoSize(Math.max(rMax * 1.25, (len * 0.6) / (this.aspect || 1)));
+      this.camera.position.set(cz, 0, 1000);
+      this.camera.up.set(0, 1, 0);
+      this.controls.target.set(cz, 0, 0);
+    } else if (this.view === 'face') {
+      this.setOrthoSize(rMax * 1.3);
+      this.camera.position.set(zMax + 1000, 0, 0);
+      this.camera.up.set(0, 1, 0);
+      this.controls.target.set(zMax, 0, 0);
+    } else {
+      const target = this.finished ? new THREE.Vector3(cz, 0, 0) : new THREE.Vector3(cz + 20, 20, 0);
+      const dist = this.finished ? Math.max(len, rMax * 2) * 2.4 : Math.max(len + 100, rMax * 4 + 120) * 1.45;
+      this.camera.up.set(0, 1, 0);
+      this.camera.position.copy(target).addScaledVector(new THREE.Vector3(0.35, 0.4, 1).normalize(), dist);
+      this.controls.target.copy(target);
+    }
+    this.camera.updateProjectionMatrix();
     this.controls.update();
+    this.applySection();
   }
 
   render(dt) {
