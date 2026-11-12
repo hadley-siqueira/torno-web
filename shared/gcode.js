@@ -522,7 +522,8 @@ export function parseProgram(text, options = {}) {
  * Devolve { diameter, length (em balanço), faceZ, clamp, bore?, total } ou null.
  * Ex. de aluno: WORKPIECE(,,,"CYLINDER",0,2,120,100,82.55) -> Ø82,55, face em Z2,
  * 120 mm de bruto, 100 mm usináveis (20 mm na placa).
- * A interpretação de ZI/ZB positivos como comprimentos ainda deve ser conferida num SinuTrain.
+ * Confirmado por alunos (2026-11-11): XA = Ø da peça, ZA = zero peça (face do bruto),
+ * ZI = comprimento total, ZB = comprimento de trabalho (fora das castanhas).
  */
 export function parseWorkpiece(text) {
   const m = String(text).match(/WORKPIECE\s*\((.*)\)/i);

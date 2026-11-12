@@ -103,20 +103,20 @@ test('peça bruta lida do cabeçalho do programa', async ({ page }) => {
   await page.selectOption('#programSelect', 'ex:03_bola_fanuc.nc');
   await page.click('#btnOpen');
   await expect(page.locator('#stockD')).toHaveValue('40');
-  // o cabeçalho dá o comprimento em balanço (80); na tela: total = 80 + 25 nas castanhas
+  // o cabeçalho dá o comprimento de trabalho (ZB = 80); total ZI = 80 + 25 nas castanhas
   await expect(page.locator('#stockT')).toHaveValue('105');
-  await expect(page.locator('#stockC')).toHaveValue('25');
+  await expect(page.locator('#stockB')).toHaveValue('80');
   await expect(page.locator('#stockDi')).toHaveValue('0');
-  await expect(page.locator('#stockInfo')).toContainText('Em balanço (útil para usinar): 80 mm');
+  await expect(page.locator('#stockInfo')).toContainText('Nas castanhas: 25 mm');
 });
 
-test('peça bruta: tubo e comprimento preso nas castanhas', async ({ page }) => {
+test('peça bruta: tubo e comprimento de trabalho (ZB)', async ({ page }) => {
   await page.locator('details.settings summary').first().click();
   await page.fill('#stockD', '50');
   await page.fill('#stockDi', '20');
   await page.fill('#stockT', '90');
-  await page.fill('#stockC', '30');
-  await expect(page.locator('#stockInfo')).toContainText('60 mm');
+  await page.fill('#stockB', '60');
+  await expect(page.locator('#stockInfo')).toContainText('Nas castanhas: 30 mm');
   await page.click('#btnApplyStock');
   // barra de mandrilar direto no tubo, sem furar antes
   await setCode(page, 'G18 G90 G95 DIAMON\nT7 D1\nG97 S800 M3\nG0 X22 Z2\nG1 Z-20 F0.1\nG0 Z5\nG0 X150 Z100\nM30');
@@ -232,7 +232,7 @@ N170 M2`);
   // a peça bruta veio do WORKPIECE
   await expect(page.locator('#stockD')).toHaveValue('82.55');
   await expect(page.locator('#stockT')).toHaveValue('120');
-  await expect(page.locator('#stockC')).toHaveValue('20');
+  await expect(page.locator('#stockB')).toHaveValue('100');
   const msgs = page.locator('#messages');
   await expect(msgs).toContainText('Peça bruta do WORKPIECE: Ø82.55');
   await expect(msgs).toContainText('Avanço F0.02 abaixo do usual para T1');

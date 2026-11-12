@@ -48,6 +48,8 @@ Fonte: dois vídeos de tela (sem áudio) de alunos simulando no SinuTrain. Os v�
   N60 X84.55 Z1
   N70 G1 X-1 F0.02
   ```
+  - **Campos confirmados por alunos:** XA = Ø da peça, ZA = zero peça (face do bruto), ZI = comprimento
+    total, ZB = comprimento de trabalho (fora das castanhas). A tela do TornoWeb usa os mesmos campos.
   - **A peça bruta vem de uma linha do programa:** `WORKPIECE(...)` (pergunta 19). Pelo manual do
     840D sl: `"CYLINDER"`/`"PIPE"`, ZA = início (face), ZI = fim, ZB = limite de usinagem, XA = Ø externo,
     XI = Ø interno (tubo). No exemplo: face em Z2, 120 mm de comprimento, 100 mm usináveis, Ø82,55.

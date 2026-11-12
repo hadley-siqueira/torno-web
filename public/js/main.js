@@ -452,17 +452,18 @@ const clampNum = (v, min, max, def) => {
 
 /**
  * Lê os campos da peça bruta. O modelo usa o comprimento em balanço (length);
- * na tela o aluno informa o total e quanto fica preso, como no SinuTrain.
+ * na tela o aluno informa, como no SinuTrain: XA (Ø), XI (tubo), ZI (total), ZB (de trabalho,
+ * fora das castanhas) e ZA (face do bruto); o trecho preso na placa é ZI − ZB.
  * Devolve { params } ou { error } (chave de tradução).
  */
 function readStockInputs() {
   const diameter = clampNum($('stockD').value, 5, 200, 50);
   const bore = clampNum($('stockDi').value, 0, 190, 0);
   const total = clampNum($('stockT').value, 15, 400, 105);
-  const clamp = clampNum($('stockC').value, 5, 100, 25);
+  const length = clampNum($('stockB').value, 0, 400, 80);
   const faceZ = clampNum($('stockF').value, 0, 10, 0);
-  const length = total - clamp;
-  if (length < 10 || length > 300) return { error: 'stock_bad_len' };
+  const clamp = total - length;
+  if (length < 10 || length > 300 || clamp < 5 || clamp > 100) return { error: 'stock_bad_len' };
   if (bore > 0 && bore > diameter - 2) return { error: 'stock_bad_bore' };
   const params = { diameter, length, faceZ, clamp };
   if (bore > 0) params.bore = bore;
@@ -474,14 +475,14 @@ function setStockInputs(s) {
   $('stockD').value = s.diameter;
   $('stockDi').value = s.bore || 0;
   $('stockT').value = s.length + clamp;
-  $('stockC').value = clamp;
+  $('stockB').value = s.length;
   $('stockF').value = s.faceZ;
   updateStockInfo();
 }
 
 function updateStockInfo() {
   const { params, error } = readStockInputs();
-  $('stockInfo').textContent = error ? tr('stock_bad', { msg: tr(error) }) : tr('stock_info', { len: fmtNum(params.length) });
+  $('stockInfo').textContent = error ? tr('stock_bad', { msg: tr(error) }) : tr('stock_info', { clamp: fmtNum(params.clamp) });
   $('stockInfo').classList.toggle('err', !!error);
 }
 
@@ -502,9 +503,8 @@ function announceWorkpiece(st) {
 function sameStock(a, b) {
   if (!a || !b) return false;
   const eq = (x, y) => Math.abs((x || 0) - (y || 0)) < 1e-6;
-  const clampA = Math.min(100, Math.max(5, a.clamp ?? 25));
   return eq(a.diameter, b.diameter) && eq(a.bore, b.bore) && eq(a.faceZ, b.faceZ) &&
-    eq(clampA, b.clamp) && eq(a.length + (a.clamp ?? 25) - clampA, b.length);
+    eq(a.clamp ?? 25, b.clamp) && eq(a.length, b.length);
 }
 
 function applyStock() {
@@ -530,7 +530,8 @@ function stockFromHeaderInputs(code, announce = true) {
   const st = stockFromProgram(code);
   if (!st) return false;
   if (announce) announceWorkpiece(st);
-  const clamp = st.clamp ?? clampNum($('stockC').value, 5, 100, 25);
+  // sem o trecho preso no programa ("; Bruto: D50 x 80"), mantém o que está na tela (ZI − ZB)
+  const clamp = st.clamp ?? (readStockInputs().params?.clamp ?? 25);
   setStockInputs({
     diameter: st.diameter,
     bore: st.bore || 0,
@@ -799,7 +800,7 @@ $('chkRulers').onchange = (e) => {
   rulers.setEnabled(e.target.checked);
   saveSettings({ rulers: e.target.checked });
 };
-for (const id of ['stockD', 'stockDi', 'stockT', 'stockC', 'stockF']) $(id).addEventListener('input', updateStockInfo);
+for (const id of ['stockD', 'stockDi', 'stockT', 'stockB', 'stockF']) $(id).addEventListener('input', updateStockInfo);
 $('chkSection').onchange = (e) => {
   scene.setSection(e.target.checked);
   saveSettings({ section: e.target.checked });

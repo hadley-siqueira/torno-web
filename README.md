@@ -10,10 +10,10 @@ G-code, aperta **Cycle Start** e vê a ferramenta usinando a peça em 3D (Three.
 | ![Bucha pronta na vista Lateral: réguas Z e Ø, leitura dos diâmetros e cota entre duas faces](docs/img/reguas-lateral.png) | ![Eixo perfilado pronto em 3D com meio corte, mostrando a gola e o furo](docs/img/peca-pronta.png) |
 | Passe o mouse para ler Z, Ø externo e Ø interno; clique para medir comprimentos. | Ao separar a peça no corte, ela aparece sozinha em destaque. |
 
-<img src="docs/img/bruto-e-torre.png" alt="Painéis da peça bruta (Ø, tubo, comprimento total, castanhas) e da torre de 8 posições" width="300" align="right">
+<img src="docs/img/bruto-e-torre.png" alt="Painéis da peça bruta (XA, XI, ZI, ZB, ZA) e da torre de 8 posições" width="300" align="right">
 
-**Peça bruta e torre configuráveis:** Ø externo (com bitolas em polegadas), tubo, comprimento total
-e preso nas castanhas; torre de 8 posições com a montagem padrão ou a da apostila do curso.
+**Peça bruta e torre configuráveis:** os mesmos campos do SinuTrain (XA, XI, ZI, ZB, ZA), com
+bitolas em polegadas; torre de 8 posições com a montagem padrão ou a da apostila do curso.
 O programa também pode definir a peça com `WORKPIECE(...)`, como no SinuTrain.
 
 <br clear="right">
@@ -161,11 +161,20 @@ clique para fixar uma referência e medir a distância até outro ponto (ΔZ).
 
 ### Peça bruta
 
-Em "Peça bruta": Ø externo, Ø interno (tubo; 0 = barra maciça), comprimento total, comprimento preso
-nas castanhas e face bruta em Z (sobremetal; o zero peça é a face acabada, Z0). O comprimento em
-balanço (total − castanhas) é o útil para usinar; passar dele é colisão com a placa.
+Em "Peça bruta", os mesmos campos do SinuTrain:
 
-O cabeçalho do programa ajusta a peça bruta ao abrir. O segundo número é o comprimento **em balanço**:
+| Campo | Significado |
+|---|---|
+| **XA** | Ø da peça |
+| **XI** | Ø interno do tubo (0 = barra maciça) |
+| **ZI** | Comprimento total do bruto |
+| **ZB** | Comprimento de trabalho (fora das castanhas); passar dele é colisão com a placa |
+| **ZA** | Face do bruto; o zero peça (Z0) é a face acabada (ZA = 2 deixa 2 mm para facear) |
+
+O trecho preso na placa é ZI − ZB.
+
+O programa também ajusta a peça bruta: com `WORKPIECE(,,,"CYLINDER",0,ZA,ZI,ZB,XA)` (ou `"PIPE"` com XI),
+como no SinuTrain, ou com um comentário cujo segundo número é o comprimento de trabalho (ZB):
 
 ```
 ; Bruto: D50 x 80 mm, face em Z1
