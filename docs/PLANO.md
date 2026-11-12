@@ -434,13 +434,25 @@ a mesma sequência (abrir programa, simular, fazer preset, rodar em AUTO) sem pr
 
 ## Ordem sugerida
 
-1. Etapa 0 (base) + ciclo de desbaste CYCLE95 / G71-G70
-2. Tabela de ferramentas, corretores e G54 + G41/G42
-3. Rosca com hélice + ciclos de rosca e canal + refrigeração (fluido) visível
-4. Vista 2D + editor com checagem ao vivo
-5. Levantamento e protótipo do perfil "Máquina"
-6. Modos JOG/manivela/MDA + preset (já dentro do perfil escolhido)
-7. Medição, comparação com desenho e exercícios
+Revisada em 2026-11-11, depois dos vídeos dos alunos e da apostila. Critério: primeiro fazer os
+programas reais do curso rodarem; depois os ciclos, a correção para o professor e, por último, a operação.
+
+1. ~~**Etapa 1 – programas reais dos alunos**~~ **feita (2026-11-11):** WORKPIECE, aviso de CHF/RND/ANG
+   ignorados, torre da apostila + bedame D1/D2, bitolas em polegadas, avisos de avanço e broca fora do centro;
+   tela da peça bruta com XA/XI/ZI/ZB/ZA.
+2. **Etapa 2 – segunda metade do curso** (próxima): chanfro/arredondamento (`CHF/CHR/RND/RNDM`) e
+   reta por ângulo (`ANG=`) → zero peça na face esquerda (`G58`, Z positivo) → **CYCLE95** com rótulos
+   `"INICIO:FIM"` → **CYCLE97** + hélice visível (pedido "Roscas") → G41/G42.
+3. **Etapa 3 – avaliação:** correção por blocos contra o gabarito (pergunta 20), exercícios da apostila
+   como exemplos/testes (pedir autorização), exercícios com enunciado, tabela de cotas.
+4. **Etapa 4 – infraestrutura** (antes de turmas reais): HTTPS, `NODE_ENV=production`, backup do banco;
+   recuperação de senha.
+5. **Etapa 5 – conforto/visual:** editor com cores e erros ao digitar, override em %, calculadora de
+   corte, **refrigeração visível** (pedido "Fluidos"), duas janelas/zoom, pastas por atividade.
+6. **Etapa 6 – operação** (depende da pergunta 14): tabela de ferramentas e corretores, G54–G59 reais,
+   JOG/manivela/MDA/overrides, preset, perfil de interface "Máquina".
+7. Depois: desenho técnico da peça (fases A–E), CYCLE93/94/96, CYCLE81–83, subprogramas e `R`,
+   formulários de ciclo, Fanuc avançado, fresadora.
 
 ## Decisões registradas
 
