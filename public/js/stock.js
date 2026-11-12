@@ -193,7 +193,7 @@ export class Stock extends StockModel {
     const clamped = this.clamp > 0;
     const z0 = clamped ? this.zLeft - this.clamp : this.zAt(0);
     const r0 = clamped ? this.R0 : ro[0];
-    const ri0 = clamped ? 0 : rin[0];
+    const ri0 = clamped ? this.Ri0 : rin[0];
 
     this.writeRing(0, z0, r0, 0, 1, clamped ? RAW : CUT, clamped);
     for (let i = lo; i <= hi; i++) {
@@ -269,7 +269,7 @@ export class Stock extends StockModel {
         p[o + 2] = 0;
       }
     };
-    if (this.clamp > 0) put(0, this.zLeft - this.clamp, this.R0, 0);
+    if (this.clamp > 0) put(0, this.zLeft - this.clamp, this.R0, this.Ri0);
     else put(0, this.zAt(0), this.r[0], Math.min(this.ri[0], this.r[0]));
     for (let i = 0; i < this.N; i++) put(i + 1, this.zAt(i), this.r[i], Math.min(this.ri[i], this.r[i]));
     this.section.geometry.attributes.position.needsUpdate = true;

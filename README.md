@@ -68,6 +68,8 @@ o servidor cuida de login, sessões, banco de dados e programas dos alunos.
 | Motor da simulação | `shared/simulator.js` | Executa os eventos no tempo sobre o modelo da peça (sem interface) |
 | Ferramentas | `shared/tools.js` | Torre de 8 posições e geometria das pastilhas |
 | Idiomas | `shared/i18n.js` | Textos PT/EN da interface e das mensagens |
+| Medição | `shared/measure.js` | Faces do perfil e passo das réguas (testado no Node) |
+| Réguas | `public/js/rulers.js` | Réguas graduadas e leitura de medidas na vista Lateral |
 | Peça 3D | `public/js/stock.js` | Malha de revolução e vista em corte a partir do modelo da peça |
 | Cena 3D | `public/js/scene.js` | Placa, ferramenta, trajetória, cavacos, vista em corte |
 | Simulador | `public/js/main.js` | Editor, DRO, softkeys, programas; liga o motor à cena 3D |
@@ -127,7 +129,22 @@ Sistema → "Usar aceleração gráfica quando disponível") e reinicie-o; se co
 | **Meio corte** | Corta a peça ao meio no 3D para ver o interior |
 | **Peça pronta** | Só a peça fabricada, sem máquina; abre sozinha quando a peça é separada no corte |
 
-O cabeçalho `; Bruto: D50 x 80 mm, face em Z1` ajusta a peça bruta automaticamente ao abrir o programa.
+**Réguas** (vista Lateral, opção "Réguas"): régua Z embaixo da peça e régua X em diâmetro ao lado da
+face. Passe o mouse sobre a peça para ler Z, Ø externo e Ø interno (a leitura gruda nas faces);
+clique para fixar uma referência e medir a distância até outro ponto (ΔZ).
+
+### Peça bruta
+
+Em "Peça bruta": Ø externo, Ø interno (tubo; 0 = barra maciça), comprimento total, comprimento preso
+nas castanhas e face bruta em Z (sobremetal; o zero peça é a face acabada, Z0). O comprimento em
+balanço (total − castanhas) é o útil para usinar; passar dele é colisão com a placa.
+
+O cabeçalho do programa ajusta a peça bruta ao abrir. O segundo número é o comprimento **em balanço**:
+
+```
+; Bruto: D50 x 80 mm, face em Z1
+; Bruto: D50 x 60 mm, tubo Ø20, castanhas 30, face em Z1
+```
 
 ## Limitações e próximos passos
 

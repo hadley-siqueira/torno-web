@@ -6,6 +6,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { Stock } from './stock.js';
 import { DEFAULT_TURRET } from '/shared/tools.js';
+import { JAW_LENGTH } from '/shared/stock-model.js';
 
 const PATH_COLORS = {
   rapid: new THREE.Color(0xffa63d),
@@ -133,7 +134,9 @@ export class LatheScene {
     const s = this.stock;
     const R = s.R0;
     const zJawFront = s.zLeft;
-    const zJawBack = s.zLeft - s.clamp;
+    // as castanhas têm comprimento fixo; o que passar disso fica dentro da placa
+    const jawLen = Math.max(5, Math.min(s.clamp, JAW_LENGTH));
+    const zJawBack = s.zLeft - jawLen;
     const bodyR = Math.max(70, R + 45);
     const bodyLen = 55;
     this.chuckInfo = { zFront: zJawFront, jawOuter: R + 16, bodyR };
@@ -151,10 +154,10 @@ export class LatheScene {
     chuck.add(body);
     for (let k = 0; k < 3; k++) {
       const jaw = new THREE.Group();
-      const grip = new THREE.Mesh(new THREE.BoxGeometry(s.clamp, 16, 16), jawMat);
-      grip.position.set(zJawBack + s.clamp / 2, R + 8, 0);
-      const base = new THREE.Mesh(new THREE.BoxGeometry(s.clamp * 0.6, bodyR - R - 22, 20), jawMat);
-      base.position.set(zJawBack + s.clamp * 0.3, R + 16 + (bodyR - R - 22) / 2, 0);
+      const grip = new THREE.Mesh(new THREE.BoxGeometry(jawLen, 16, 16), jawMat);
+      grip.position.set(zJawBack + jawLen / 2, R + 8, 0);
+      const base = new THREE.Mesh(new THREE.BoxGeometry(jawLen * 0.6, bodyR - R - 22, 20), jawMat);
+      base.position.set(zJawBack + jawLen * 0.3, R + 16 + (bodyR - R - 22) / 2, 0);
       jaw.add(grip, base);
       jaw.rotation.x = (k * Math.PI * 2) / 3;
       chuck.add(jaw);
@@ -479,7 +482,7 @@ export class LatheScene {
       rMax = s.R0;
     } else {
       const s = this.stock;
-      zMin = s.zLeft - s.clamp - 20;
+      zMin = s.zLeft - Math.min(s.clamp, JAW_LENGTH) - 20;
       zMax = s.faceZ + 60;
       rMax = s.R0 + 30;
     }
@@ -569,6 +572,7 @@ export class LatheScene {
     this.needsRender = false;
     this.renderer.render(this.scene, this.camera);
     this.renders = (this.renders || 0) + 1;
+    this.onRender?.(); // camadas 2D por cima (réguas)
     return true;
   }
 }

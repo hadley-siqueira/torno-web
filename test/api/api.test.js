@@ -106,6 +106,11 @@ test('configurações: só chaves e valores válidos', async () => {
   const c = await signup('edu');
   const r = await c('PUT', '/api/settings', { lang: 'en', dialect: 'x', hack: 1, stock: { diameter: 40, length: 80, faceZ: 1 } });
   assert.deepEqual(r.body, { lang: 'en', stock: { diameter: 40, length: 80, faceZ: 1 } });
+  // tubo e comprimento preso na placa (opcionais); Ø interno maior que o externo é descartado
+  const r2 = await c('PUT', '/api/settings', { rulers: false, stock: { diameter: 50, length: 60, faceZ: 1, bore: 20, clamp: 30 } });
+  assert.deepEqual(r2.body, { lang: 'en', rulers: false, stock: { diameter: 50, length: 60, faceZ: 1, bore: 20, clamp: 30 } });
+  const r3 = await c('PUT', '/api/settings', { stock: { diameter: 30, length: 60, faceZ: 1, bore: 40, clamp: 500 } });
+  assert.deepEqual(r3.body, { lang: 'en', rulers: false, stock: { diameter: 30, length: 60, faceZ: 1 } });
   // torre: tipos válidos, posição vazia permitida, tipo desconhecido volta ao padrão
   const tr = await c('PUT', '/api/settings', { turret: { 1: 'ext_finish_55', 2: '', 3: 'xxx' } });
   assert.equal(tr.body.turret[1], 'ext_finish_55');

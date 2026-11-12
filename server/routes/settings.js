@@ -13,6 +13,7 @@ export function sanitizeSettings(input = {}) {
   if (Number.isInteger(input.speed) && input.speed >= 0 && input.speed <= 20) out.speed = input.speed;
   if (typeof input.showPath === 'boolean') out.showPath = input.showPath;
   if (typeof input.section === 'boolean') out.section = input.section;
+  if (typeof input.rulers === 'boolean') out.rulers = input.rulers;
   const turret = sanitizeTurret(input.turret);
   if (turret) out.turret = turret;
   if (input.stock && typeof input.stock === 'object') {
@@ -21,7 +22,14 @@ export function sanitizeSettings(input = {}) {
       length: num(input.stock.length, 10, 300),
       faceZ: num(input.stock.faceZ, 0, 10),
     };
-    if (Object.values(s).every((v) => v !== undefined)) out.stock = s;
+    if (Object.values(s).every((v) => v !== undefined)) {
+      // opcionais: Ø interno (tubo) e comprimento preso nas castanhas
+      const bore = num(input.stock.bore, 0, s.diameter - 2);
+      const clamp = num(input.stock.clamp, 5, 100);
+      if (bore) s.bore = bore;
+      if (clamp !== undefined) s.clamp = clamp;
+      out.stock = s;
+    }
   }
   return out;
 }

@@ -12,8 +12,12 @@ const stock = () => new StockModel({ diameter: 50, length: 80, faceZ: 1 });
 function sweep(s, tool, [z0, x0], [z1, x1]) {
   const n = Math.max(1, Math.ceil(Math.hypot(z1 - z0, x1 - x0) / (s.h * 0.7)));
   let last;
+  let [pz, px] = [z0, x0];
   for (let i = 1; i <= n; i++) {
-    last = s.carve(tool, z0 + ((z1 - z0) * i) / n, x0 + ((x1 - x0) * i) / n);
+    const z = z0 + ((z1 - z0) * i) / n;
+    const x = x0 + ((x1 - x0) * i) / n;
+    last = s.carve(tool, z, x, pz, px);
+    [pz, px] = [z, x];
     if (last.collision || last.offCenter) return last;
   }
   return last;
@@ -97,4 +101,29 @@ test('reset restaura o bruto', () => {
   s.reset();
   near(s.diameterAt(-10), 50, 1e-6);
   near(s.boreAt(-10), 0, 1e-6);
+});
+
+test('diâmetro sai exato (a ponta não "pula" amostras entre passos)', () => {
+  // passos que não coincidem com as amostras: antes sobravam centésimos (Ø46,05)
+  for (const t of [1, 2]) {
+    const s = stock();
+    sweep(s, T[t], [2, 23], [-37.3, 23]);
+    for (const z of [-3.21, -10.6, -19.5, -30.07]) near(s.diameterAt(z), 46, 1e-3, `T${t} em Z${z}`);
+  }
+  const s = stock();
+  sweep(s, T[6], [5, 0], [-40, 0]); // broca Ø16
+  sweep(s, T[7], [3, 12], [-30.3, 12]); // barra em Ø24
+  for (const z of [-2.2, -11.11, -19.5, -29]) near(s.boreAt(z), 24, 1e-3, `furo em Z${z}`);
+});
+
+test('tubo: bruto com furo; ferramenta interna usina sem furar antes', () => {
+  const s = new StockModel({ diameter: 50, length: 60, faceZ: 1, bore: 20 });
+  near(s.boreAt(-30), 20, 1e-6, 'furo do tubo');
+  near(s.diameterAt(-30), 50, 1e-6);
+  const r = sweep(s, T[7], [3, 11], [-20, 11]); // barra em Ø22, sem broca
+  assert.equal(r.collision, false);
+  near(s.boreAt(-10), 22, 1e-3);
+  near(s.boreAt(-30), 20, 1e-6, 'além do passe continua o furo do tubo');
+  s.reset();
+  near(s.boreAt(-10), 20, 1e-6, 'reset volta ao tubo');
 });

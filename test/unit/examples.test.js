@@ -81,11 +81,11 @@ const DIMENSIONS = {
     near(partDiameterAt(p, -18).d, 27, 'canal de saída');
     near(partDiameterAt(p, -21).d, 36, 'colar D36');
     near(partDiameterAt(p, -36).d, 26, 'fundo da gola D26');
-    // nos trechos inclinados da gola a resolução da simulação dá até ~0,1 mm
+    // trechos inclinados da gola: com a varredura exata da ponta o erro é de milésimos
     const cove1 = 2 * (35.1 - Math.sqrt(22.1 ** 2 - 7 ** 2));
-    near(partDiameterAt(p, -29).d, cove1, 'gola R22,1 em Z-29', 0.15);
+    near(partDiameterAt(p, -29).d, cove1, 'gola R22,1 em Z-29', 0.02);
     const cove2 = 2 * (31.722 - Math.sqrt(18.722 ** 2 - 8 ** 2));
-    near(partDiameterAt(p, -44).d, cove2, 'gola R18,722 em Z-44', 0.15);
+    near(partDiameterAt(p, -44).d, cove2, 'gola R18,722 em Z-44', 0.02);
     near(partDiameterAt(p, -55).d, 47, 'meio do cone D44/D50');
     near(partDiameterAt(p, -65).d, 56, 'corpo D56');
     near(partDiameterAt(p, -5).bore, 16, 'furo D16');

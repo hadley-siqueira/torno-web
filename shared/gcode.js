@@ -476,13 +476,26 @@ function sweep(z0, r0, z1, r1, cz, cr, cw) {
 /**
  * Lê a peça bruta do cabeçalho do programa:
  * "; Bruto: D50 x 80 mm, face em Z1" (ou "STOCK: D50 x 80", "raw face at Z1").
- * Devolve { diameter, length, faceZ? } ou null.
+ * D = Ø externo; o segundo número é o comprimento em balanço (fora da placa).
+ * Opcionais na mesma linha: "tubo Ø20" (Ø interno) e "castanhas 30" (comprimento preso).
+ * Devolve { diameter, length, faceZ?, bore?, clamp? } ou null.
  */
 export function stockFromHeader(code) {
-  const m = String(code).match(/(?:BRUTO|STOCK)[:\s]*D\s*(\d+(?:\.\d+)?)\s*[xX]\s*(\d+(?:\.\d+)?)/i);
+  // Só a linha do cabeçalho com "Bruto"/"Stock" (para não pegar palavras de outros comentários)
+  const line = String(code).split(/\r?\n/).find((l) => /(?:BRUTO|STOCK)[:\s]*D\s*\d/i.test(l));
+  if (!line) return null;
+  const m = line.match(/(?:BRUTO|STOCK)[:\s]*D\s*(\d+(?:\.\d+)?)\s*[xX]\s*(\d+(?:\.\d+)?)/i);
   if (!m) return null;
   const out = { diameter: Number(m[1]), length: Number(m[2]) };
-  const f = String(code).match(/(?:FACE\s+(?:BRUTA\s+)?EM|RAW\s+FACE\s+AT)\s+Z\s*(\d+(?:\.\d+)?)/i);
-  if (f) out.faceZ = Number(f[1]);
+  const num = (re) => {
+    const f = line.match(re);
+    return f ? Number(f[1]) : undefined;
+  };
+  const faceZ = num(/(?:FACE\s+(?:BRUTA\s+)?EM|RAW\s+FACE\s+AT)\s+Z\s*(\d+(?:\.\d+)?)/i);
+  const bore = num(/(?:TUBO|TUBE)\s*(?:[ØDd]|ID)?\s*(\d+(?:\.\d+)?)/i);
+  const clamp = num(/(?:CASTANHAS|PRESO|FIXADO|CLAMPED|IN\s+CHUCK)\s*(\d+(?:\.\d+)?)/i);
+  if (faceZ !== undefined) out.faceZ = faceZ;
+  if (bore !== undefined) out.bore = bore;
+  if (clamp !== undefined) out.clamp = clamp;
   return out;
 }

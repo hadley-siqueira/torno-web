@@ -138,4 +138,10 @@ test('cabeçalho da peça bruta', async () => {
   assert.deepEqual(stockFromHeader('; Bruto: D50 x 80 mm, face em Z1'), { diameter: 50, length: 80, faceZ: 1 });
   assert.deepEqual(stockFromHeader('(STOCK D40.5 X 75, RAW FACE AT Z0.5)'), { diameter: 40.5, length: 75, faceZ: 0.5 });
   assert.equal(stockFromHeader('G0 X10'), null);
+  assert.deepEqual(stockFromHeader('; Bruto: D50 x 60 mm, tubo Ø20, castanhas 30, face em Z1'), {
+    diameter: 50, length: 60, faceZ: 1, bore: 20, clamp: 30,
+  });
+  assert.deepEqual(stockFromHeader('; Stock: D50 x 60, tube ID20, clamped 30'), { diameter: 50, length: 60, bore: 20, clamp: 30 });
+  // "tubo" em outro comentário não conta
+  assert.deepEqual(stockFromHeader('; Bruto: D40 x 80\n; usar tubo 3 de refrigeração'), { diameter: 40, length: 80 });
 });

@@ -30,6 +30,37 @@ Fonte: áudio de ~3 min e mensagem escrita do professor da disciplina, transcrit
    exista um **gabarito padronizado**. Cada bloco com erro é eliminado; a nota é proporcional à
    quantidade de blocos certos em relação ao gabarito.
 
+### O que os alunos fazem no SinuTrain (vídeos gravados em aula, 2026-11-11)
+
+Fonte: dois vídeos de tela (sem áudio) de alunos simulando no SinuTrain. Os vídeos não foram guardados.
+
+- **Máquina no SinuTrain:** "TORNO CNC", **840D sl 4.95 SP3 HF2**, interface **SINUMERIK Operate**
+  (não a do 802D sl da máquina real). Responde às perguntas 13 e 15.
+- **Organização:** em "Peças de trabalho", cada aluno tem uma pasta (WPD) com os programas (MPF):
+  "ATIVIDADE AVALIATIVA 00/01", "ATIVIDADE ORIENTADA", "EXERCICIO 02/03/06"…
+- **Cabeçalho real de um programa de aluno:**
+  ```
+  N10 WORKPIECE(,,,"CYLINDER",0,2,120,100,82.55)
+  N20 G18 G54 G71 G90 G96
+  N30 G0 X200 Z200
+  N40 T1 D1
+  N50 S200 M4
+  N60 X84.55 Z1
+  N70 G1 X-1 F0.02
+  ```
+  - **A peça bruta vem de uma linha do programa:** `WORKPIECE(...)` (pergunta 19). Pelo manual do
+    840D sl: `"CYLINDER"`/`"PIPE"`, ZA = início (face), ZI = fim, ZB = limite de usinagem, XA = Ø externo,
+    XI = Ø interno (tubo). No exemplo: face em Z2, 120 mm de comprimento, 100 mm usináveis, Ø82,55.
+  - `G71` = milímetros (Siemens), `G54` sempre presente, `G96` + `S200 M4` sem `LIMS`, números de bloco `N` de 10 em 10.
+- **Estilo das passadas** (igual ao relato do professor): `G0 Z2` → `X…` → `G1 Z-55` → `X…+2` (recua em G1)
+  → `G0 Z2`, repetido para cada passe; raios com `G2/G3 … CR=`. Programas longos (90+ blocos), sem ciclos.
+- **Simulação:** vistas Lateral (com escalas Z e X), 3D, "Outras vistas" (2 janelas, seção média,
+  vista frontal), "Detalhes"; "Controle de progr." com **override** (máx., 100 %, +, −, usado em 5–75 %),
+  bloco a bloco e alarmes; barra de estado com X/Z, nome da ferramenta (ROUGHING_T80 A, FINISHING_T35 A,
+  DRILL_32), D, F em mm/rot, override e tempo.
+- **Erros vistos:** `F0.02` no desbaste deu **1h35 de usinagem** simulada; `T2` chamou uma **broca Ø32**
+  (DRILL_32) quando o aluno queria outra ferramenta, e a broca "torneou" o diâmetro externo.
+
 ## Princípios
 
 1. **Fidelidade ao fluxo da máquina, não à aparência de outro software.** SinuTrain e SSCNC
@@ -100,11 +131,24 @@ Ciclos do **802D sl** (são estes que os alunos usam na máquina):
 
 ### Pedidos de funcionalidade (2026-11-11)
 
-- [ ] **Peça bruta como no SinuTrain** (relato do professor da disciplina): além de diâmetro e comprimento,
-      **tubo** (diâmetro interno do bruto, para usinagem interna sem furar antes), **comprimento fixado
-      nas castanhas** (hoje fixo em 25 mm) e posição do **zero peça**. Mostrar o comprimento útil
-      (em balanço) e alarmar se a ferramenta for além dele. Ver pergunta 19 (como o aluno informa o
-      bruto no SinuTrain: tela ou linha no programa).
+Ideias tiradas dos vídeos dos alunos (ver Contexto):
+
+- [ ] **`WORKPIECE(...)` no programa** (prioridade alta): hoje o programa real do aluno **para na 1ª linha**
+      com "palavra desconhecida". Ler `"CYLINDER"`/`"PIPE"` e ajustar a peça bruta (Ø, tubo, comprimento,
+      face, limite de usinagem → comprimento nas castanhas). Confirmar os sinais de ZI/ZB com um programa
+      completo (incremental × absoluto).
+- [ ] **Aviso de avanço fora da faixa** da ferramenta (ex.: desbaste com `F0.02` → tempo enorme) e de
+      **ferramenta errada para o movimento** (broca chamada e movida fora do centro, mesmo sem encostar).
+- [ ] **Override da simulação em %** (como o "Controle de progr."), além da velocidade atual.
+- [ ] **Nomes de ferramenta como no Operate** na barra de estado/torre (ex.: ROUGHING_T80 A), opcional.
+- [ ] **Pastas por atividade** (Exercícios, Atividades avaliativas) nos programas do aluno.
+
+- [x] **Peça bruta como no SinuTrain** (2026-11-11): Ø externo, **Ø interno (tubo)**, **comprimento
+      total**, **comprimento preso nas castanhas** e face bruta (sobremetal; zero peça na face acabada).
+      Mostra o comprimento em balanço (útil); passar dele dá alarme de colisão com a placa. O cabeçalho
+      do programa aceita `tubo Ø20` e `castanhas 30`.
+- [ ] **Zero peça em outra posição** (ex.: na placa) e leitura do bruto de uma linha do programa
+      (`WORKPIECE(...)`?): depende da pergunta 19 (como o aluno informa o bruto no SinuTrain).
 - [ ] **Escolha de ferramentas pela operação:** a torre configurável já existe; nos exercícios, deixar
       o professor definir quais ferramentas estão disponíveis e o aluno montar a torre.
 
@@ -134,7 +178,7 @@ Ciclos do **802D sl** (são estes que os alunos usam na máquina):
 - [ ] **Origem da peça:** tocar a face e gravar o G54.
 - [ ] **Corretores de desgaste:** ajustar após medir a peça (ciclo real de correção dimensional).
 - [ ] **Alarmes** com o comportamento do comando: reset, confirmação, bloqueio de start.
-- [ ] Peça bruta configurável e fixação na placa, com comprimento em balanço.
+- [x] Peça bruta configurável e fixação na placa, com comprimento em balanço (2026-11-11).
 
 ## Etapa 3: recursos didáticos
 
@@ -142,9 +186,11 @@ A conferência de medidas foi **confirmada** pelo professor da disciplina em 202
 alunos medem o comprimento total e os trechos usinados com as réguas dos eixos. Detalhes em
 [Plano de medição e conferência da peça](#plano-de-medição-e-conferência-da-peça).
 
-- [ ] **Réguas graduadas nos eixos Z e X** nas vistas Lateral e Peça pronta, com linhas de
-      chamada ao passar o mouse sobre faces e diâmetros. É o que os alunos já usam no SinuTrain;
-      vem antes da fase 1.
+- [x] **Réguas graduadas nos eixos Z e X** (2026-11-11) na vista Lateral (também com a Peça pronta):
+      régua Z embaixo da peça e régua X (em Ø) ao lado da face; passando o mouse, linhas de chamada com
+      Z, Ø externo e Ø interno, grudando nas faces; clique fixa uma referência e mostra a distância (ΔZ).
+      Junto veio a **varredura exata da ponta** no modelo: as medidas batem com o programado
+      (Ø46,000 em vez de Ø46,05).
 
 - [ ] **Fase 1 – Medir na peça:** modo "Medir" nas vistas Lateral e Peça pronta; Ø externo e do furo,
       comprimento entre faces, valor no formato do instrumento.
@@ -350,7 +396,7 @@ a mesma sequência (abrir programa, simular, fazer preset, rodar em AUTO) sem pr
 | 17 | Torre | **Configurável.** Não há padrão industrial de posição: quem prepara a máquina define e registra na folha de ferramentas. Os exemplos usam uma montagem padrão (T1 desbaste … T8 rosca interna). | 2026-11-11 |
 | 6 | Material de referência | Recebidos: visão geral, closes do painel de comando, da tela e do teclado, torre, contraponto e adesivo de fórmulas. **Fotos da tela ligada não são possíveis**: a máquina está com defeito. | 2026-11-11 |
 | 10 | Ferramentas da torre | Usar as ferramentas mais comuns em cursos técnicos (tabela "Torre padrão" abaixo). | 2026-11-11 |
-| 13 | SinuTrain | O professor usa o **SinuTrain v4.95**. Ele diz que usa "a 802D sl", mas não está claro se é a máquina criada no SinuTrain ou a máquina real. Ver suposição. | 2026-11-11 |
+| 13 | SinuTrain | O professor usa o **SinuTrain v4.95**. Ele diz que usa "a 802D sl", mas não está claro se é a máquina criada no SinuTrain ou a máquina real. Ver suposição. **Confirmado por vídeos (2026-11-11): no SinuTrain a máquina é um 840D sl 4.95 com SINUMERIK Operate.** | 2026-11-11 |
 | 12 | Lacunas | **Usar os padrões do SinuTrain** (o que os alunos estão usando enquanto a máquina está parada) para preencher o que não se sabe. Cada suposição fica registrada em "Suposições" e pode ser revista. | 2026-11-11 |
 | 7 | Idioma | Interface e comando emulado em **português e inglês**, configurável. | 2026-11-11 |
 
@@ -438,9 +484,9 @@ T1–T3 já existem no simulador. T4–T8 dependem da usinagem interna e da rosc
 
 | Tema | Suposição adotada | Confirmar com |
 |---|---|---|
-| Interface que os alunos veem hoje | O número 4.95 coincide com a versão do software **SINUMERIK Operate** (828D/840D sl), então o SinuTrain v4.95 provavelmente mostra a interface do Operate, e não a do 802D sl. Não foi possível confirmar se ele oferece um modelo 802D sl. O código G básico é o mesmo nos dois. | Captura de tela do SinuTrain do professor (pergunta 15) |
+| Interface que os alunos veem hoje | **Confirmado** (vídeos de alunos, 2026-11-11): a máquina criada no SinuTrain é **"TORNO CNC – 840D sl 4.95 SP3 HF2"**, com a interface **SINUMERIK Operate**, não a do 802D sl. O código G básico é o mesmo. | — |
 | Preset e zero da peça | Ferramentas já vêm medidas (corretores preenchidos), como no SinuTrain. Zero da peça na face, em **G54**, definido por uma tela de "medir peça" em JOG. | professor da disciplina (pergunta 9) |
-| Rotação | Exemplos com **G96 + LIMS** e também com **G97** calculado pela fórmula do adesivo. Os dois funcionam. | Professor (pergunta 11) |
+| Rotação | **Confirmado** (vídeo de aluno, 2026-11-11): `G96` no cabeçalho e `S200 M4` (Vc = 200 m/min, sentido M4), sem `LIMS`. Os exemplos também mostram `G97` pela fórmula do adesivo; os dois funcionam. | — |
 | Manivela | Uma manivela eletrônica, selecionada pelo painel (X/Z, ×1/×10/×100). As duas manivelas da porta ficam fora por enquanto. | Pergunta 8 |
 | Contraponto | Mostrado na cena, posicionado pela configuração da peça, sem simular as teclas `IN`/`OUT`. | Pergunta 3c |
 | Modos ao ligar | `G18 G90 DIAMON G95 G97` (plano de torneamento, absoluto, X em diâmetro, avanço por rotação). | Comparar com o SinuTrain |
@@ -455,10 +501,7 @@ Nenhuma bloqueia o trabalho atual; as suposições acima cobrem as lacunas.
 | 6 | Fotos da tela ligada (quando a máquina voltar) e close do painel da porta e das teclas de função auxiliar. Manual de operação do 802D sl, se houver | Fidelidade do perfil "Máquina" |
 | 8 | O que são as duas manivelas do painel da porta? | Como simular JOG/manivela |
 | 9 | Professor que opera a máquina: como os alunos fazem o preset das ferramentas e o zero da peça? | Fluxo de operação a simular |
-| 11 | O aluno usa rotação fixa (`G97 S…`) ou velocidade de corte constante (`G96`)? Pista (professor da disciplina, 2026-11-11): na avaliação ele fornece a **velocidade de corte** e o avanço; falta saber se o aluno calcula o `S` (G97) ou programa `G96 S<Vc>`. | Padrão dos exemplos e exercícios |
 | 16 | ~~Confirmar a conferência de medidas~~ **Respondida em parte (professor da disciplina, 2026-11-11):** medem comprimento total e trechos com as réguas dos eixos. Falta: querem desenho em diedro? Conferem diâmetros também? Texto original: a conferência de medidas após a simulação é feita assim (diâmetros e comprimentos entre faces)? Quais instrumentos os alunos usam (paquímetro 0,02 ou 0,05 mm, micrômetro 0,01 mm, súbito)? Querem desenho em diedro? | Libera o [plano de medição](#plano-de-medição-e-conferência-da-peça) e define as resoluções |
-| 15 | Capturas de tela do **SinuTrain do professor** (é no PC, não depende da máquina): a tela de criar máquina, mostrando os tipos de comando disponíveis, e algumas telas de uso | Saber se os alunos veem 802D sl ou Operate; serve de referência visual enquanto a máquina está parada |
 | 18 | Nos desenhos das atividades, as cotas de comprimento são **em paralelo** (todas a partir de uma face), **em cadeia** ou misturadas? | Estilo padrão da cotagem automática ([desenho técnico](#desenho-técnico-a-partir-da-peça-caminho-inverso), fase C) |
-| 19 | No SinuTrain, como o aluno informa a peça bruta (diâmetro, tubo, comprimento, fixação, zero peça)? Numa **tela de configuração** ou numa **linha do programa** (ex.: `WORKPIECE(...)`)? Pedir uma foto da tela ou um programa de aluno | Define se o simulador lê o bruto do programa (como o SinuTrain) ou só de um formulário |
 | 20 | Na correção por blocos: o que conta como erro? Ex.: ordem das palavras (`G1 X30 Z-20` × `G1 Z-20 X30`), repetir ou omitir palavras modais (`G1` em toda linha), `X30` × `X30.0`, número de bloco `N`. Um bloco a mais no programa do aluno também é erro? Pedir um gabarito e uma prova corrigida como exemplo | Regras da correção automática |
-| 14 | O perfil "Máquina" deve imitar o **802D sl** (máquina real) ou a interface do **SinuTrain/Operate** (o que os alunos usam agora)? | Define o alvo do protótipo de interface |
+| 14 | O perfil "Máquina" deve imitar o **802D sl** (máquina real) ou o **SINUMERIK Operate do 840D sl** (o que os alunos usam no SinuTrain, confirmado pelos vídeos de 2026-11-11)? | Define o alvo do protótipo de interface |

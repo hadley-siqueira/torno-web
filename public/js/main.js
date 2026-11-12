@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { LatheScene } from './scene.js';
+import { Rulers } from './rulers.js';
 import { api, ApiError } from './api.js';
 import { applyI18n, guessLang, rememberLang } from './i18n-dom.js';
 import { parseProgram, stockFromHeader } from '/shared/gcode.js';
@@ -15,6 +16,8 @@ const ta = $('code');
 const gutter = $('gutter');
 const hl = $('hl');
 const scene = new LatheScene($('viewport'));
+const rulers = new Rulers(scene, $('viewport'), { tr: (key, params) => tr(key, params) });
+scene.onRender = () => rulers.draw();
 
 const app = {
   lang: guessLang(),
@@ -131,6 +134,8 @@ function setLang(lang) {
   rerenderMessages();
   if (ui.alarmInfo) showAlarmBox(ui.alarmInfo);
   if (scene.renderer) updateGlInfo();
+  updateStockInfo();
+  rulers.draw();
 }
 
 // ---------------------------------------------------------------- configurações do usuário
@@ -423,37 +428,78 @@ function setTurretSlot(n, type) {
 }
 
 // ---------------------------------------------------------------- peça bruta
-function stockParams() {
-  return {
-    diameter: Math.min(200, Math.max(5, Number($('stockD').value) || 50)),
-    length: Math.min(300, Math.max(10, Number($('stockL').value) || 80)),
-    faceZ: Math.min(10, Math.max(0, Number($('stockF').value) || 0)),
-  };
+const clampNum = (v, min, max, def) => {
+  const n = Number(v);
+  return Number.isFinite(n) && v !== '' ? Math.min(max, Math.max(min, n)) : def;
+};
+
+/**
+ * Lê os campos da peça bruta. O modelo usa o comprimento em balanço (length);
+ * na tela o aluno informa o total e quanto fica preso, como no SinuTrain.
+ * Devolve { params } ou { error } (chave de tradução).
+ */
+function readStockInputs() {
+  const diameter = clampNum($('stockD').value, 5, 200, 50);
+  const bore = clampNum($('stockDi').value, 0, 190, 0);
+  const total = clampNum($('stockT').value, 15, 400, 105);
+  const clamp = clampNum($('stockC').value, 5, 100, 25);
+  const faceZ = clampNum($('stockF').value, 0, 10, 0);
+  const length = total - clamp;
+  if (length < 10 || length > 300) return { error: 'stock_bad_len' };
+  if (bore > 0 && bore > diameter - 2) return { error: 'stock_bad_bore' };
+  const params = { diameter, length, faceZ, clamp };
+  if (bore > 0) params.bore = bore;
+  return { params };
 }
 
 function setStockInputs(s) {
+  const clamp = s.clamp ?? 25;
   $('stockD').value = s.diameter;
-  $('stockL').value = s.length;
+  $('stockDi').value = s.bore || 0;
+  $('stockT').value = s.length + clamp;
+  $('stockC').value = clamp;
   $('stockF').value = s.faceZ;
+  updateStockInfo();
 }
 
+function updateStockInfo() {
+  const { params, error } = readStockInputs();
+  $('stockInfo').textContent = error ? tr('stock_bad', { msg: tr(error) }) : tr('stock_info', { len: fmtNum(params.length) });
+  $('stockInfo').classList.toggle('err', !!error);
+}
+
+const fmtNum = (n) => String(Math.round(n * 100) / 100);
+
 function applyStock() {
-  const p = stockParams();
+  const { params: p, error } = readStockInputs();
+  updateStockInfo();
+  if (error) {
+    msgKey('stock_bad', { msg: tr(error) }, 'err');
+    return false;
+  }
   scene.setStock(p);
+  rulers.clearRef();
   ui.home = { x: Math.max(150, p.diameter + 40), z: 100 };
   sim.home = ui.home;
   sim.setStock(scene.stock);
   saveSettings({ stock: p });
   doReset();
+  return true;
 }
 
-// Ajusta os campos da peça bruta conforme o cabeçalho do programa (ver stockFromHeader)
+// Ajusta os campos da peça bruta conforme o cabeçalho do programa (ver stockFromHeader).
+// O cabeçalho descreve o bruto inteiro: sem "tubo", é barra maciça.
 function stockFromHeaderInputs(code) {
   const st = stockFromHeader(code);
   if (!st) return false;
-  $('stockD').value = st.diameter;
-  $('stockL').value = st.length;
-  if (st.faceZ !== undefined) $('stockF').value = st.faceZ;
+  const clamp = st.clamp ?? clampNum($('stockC').value, 5, 100, 25);
+  setStockInputs({
+    diameter: st.diameter,
+    bore: st.bore || 0,
+    length: st.length,
+    clamp,
+    faceZ: st.faceZ ?? clampNum($('stockF').value, 0, 10, 0),
+  });
   return true;
 }
 
@@ -702,6 +748,11 @@ $('chkPath').onchange = (e) => {
   scene.setShowPath(e.target.checked);
   saveSettings({ showPath: e.target.checked });
 };
+$('chkRulers').onchange = (e) => {
+  rulers.setEnabled(e.target.checked);
+  saveSettings({ rulers: e.target.checked });
+};
+for (const id of ['stockD', 'stockDi', 'stockT', 'stockC', 'stockF']) $(id).addEventListener('input', updateStockInfo);
 $('chkSection').onchange = (e) => {
   scene.setSection(e.target.checked);
   saveSettings({ section: e.target.checked });
@@ -740,6 +791,8 @@ $('btnFinished').onclick = () => showFinished(!scene.finished);
   $('chkSection').checked = s.section ?? false;
   scene.setShowPath($('chkPath').checked);
   scene.setSection($('chkSection').checked);
+  $('chkRulers').checked = s.rulers ?? true;
+  rulers.setEnabled($('chkRulers').checked);
   setLang(LANGS.includes(s.lang) ? s.lang : app.lang);
 
   await refreshPrograms();

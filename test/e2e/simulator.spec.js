@@ -7,7 +7,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('a cena 3D é desenhada (WebGL)', async ({ page }) => {
-  const canvas = page.locator('#viewport canvas');
+  const canvas = page.locator('#viewport canvas:not(.rulers)');
   await expect(canvas).toBeVisible();
   // a imagem do canvas não pode ser uma cor só
   const png = await canvas.screenshot();
@@ -103,7 +103,71 @@ test('peça bruta lida do cabeçalho do programa', async ({ page }) => {
   await page.selectOption('#programSelect', 'ex:03_bola_fanuc.nc');
   await page.click('#btnOpen');
   await expect(page.locator('#stockD')).toHaveValue('40');
-  await expect(page.locator('#stockL')).toHaveValue('80');
+  // o cabeçalho dá o comprimento em balanço (80); na tela: total = 80 + 25 nas castanhas
+  await expect(page.locator('#stockT')).toHaveValue('105');
+  await expect(page.locator('#stockC')).toHaveValue('25');
+  await expect(page.locator('#stockDi')).toHaveValue('0');
+  await expect(page.locator('#stockInfo')).toContainText('Em balanço (útil para usinar): 80 mm');
+});
+
+test('peça bruta: tubo e comprimento preso nas castanhas', async ({ page }) => {
+  await page.locator('details.settings summary').first().click();
+  await page.fill('#stockD', '50');
+  await page.fill('#stockDi', '20');
+  await page.fill('#stockT', '90');
+  await page.fill('#stockC', '30');
+  await expect(page.locator('#stockInfo')).toContainText('60 mm');
+  await page.click('#btnApplyStock');
+  // barra de mandrilar direto no tubo, sem furar antes
+  await setCode(page, 'G18 G90 G95 DIAMON\nT7 D1\nG97 S800 M3\nG0 X22 Z2\nG1 Z-20 F0.1\nG0 Z5\nG0 X150 Z100\nM30');
+  await runToEnd(page);
+  await expect(status(page)).toHaveText('FIM');
+  // inválido: Ø interno maior que o externo
+  await page.fill('#stockDi', '60');
+  await expect(page.locator('#stockInfo')).toContainText('Ø interno precisa ser menor');
+  await page.click('#btnApplyStock');
+  await expect(page.locator('#messages')).toContainText('Peça bruta inválida');
+});
+
+test('réguas na vista Lateral: lê Z e diâmetros e mede comprimento', async ({ page }) => {
+  await setCode(page, `; Bruto: D50 x 80 mm, face em Z1
+G18 G90 G95 DIAMON
+T1 D1
+G97 S1000 M3
+G0 X52 Z0
+G1 X-1 F0.2
+G0 X40 Z2
+G1 Z-20 F0.2
+G1 X46
+G1 Z-35
+G1 X52
+G0 X150 Z100
+M30`);
+  await runToEnd(page);
+  await page.click('[data-view=side]');
+  const rulers = page.locator('canvas.rulers');
+  // procura com o mouse um ponto sobre o trecho Ø40 (Z entre 0 e -20)
+  const vp = await page.locator('#viewport').boundingBox();
+  let reading = '';
+  for (let fx = 0.3; fx < 0.95 && !/ext 40\.00/.test(reading); fx += 0.01) {
+    await page.mouse.move(vp.x + vp.width * fx, vp.y + vp.height * 0.45);
+    reading = (await rulers.getAttribute('data-reading')) || '';
+  }
+  expect(reading).toMatch(/Ø ext 40\.00/);
+  // clique fixa a referência; em outro trecho aparece a distância (ΔZ)
+  await page.mouse.down();
+  await page.mouse.up();
+  // outro ponto sobre a peça (trecho Ø50 do bruto, à esquerda)
+  let dz = '';
+  for (let fx = 0.6; fx > 0.1 && !/ΔZ \d+\.\d\d/.test(dz); fx -= 0.02) {
+    await page.mouse.move(vp.x + vp.width * fx, vp.y + vp.height * 0.45);
+    dz = (await rulers.getAttribute('data-reading')) || '';
+  }
+  expect(dz).toMatch(/ΔZ \d+\.\d\d/);
+  // fora da vista Lateral as réguas somem
+  await page.click('[data-view=iso]');
+  await page.mouse.move(vp.x + vp.width * 0.5, vp.y + vp.height * 0.45);
+  await expect(rulers).toHaveAttribute('data-reading', '');
 });
 
 test('vistas Lateral/Face e "Peça pronta" ao fim do corte', async ({ page }) => {
@@ -118,7 +182,7 @@ test('vistas Lateral/Face e "Peça pronta" ao fim do corte', async ({ page }) =>
     await page.click(`[data-view=${view}]`);
     await expect(page.locator(`[data-view=${view}]`)).toHaveClass(/on/);
   }
-  const png = await page.locator('#viewport canvas').screenshot();
+  const png = await page.locator('#viewport canvas:not(.rulers)').screenshot();
   const distinct = new Set();
   for (let i = 0; i < png.length; i += 997) distinct.add(png[i]);
   expect(distinct.size).toBeGreaterThan(20);

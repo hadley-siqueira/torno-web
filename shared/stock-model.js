@@ -13,9 +13,18 @@ import { lowerBoundary, upperBoundary, insertSpan } from './tools.js';
 
 export const GONE = 0.02; // espessura abaixo da qual não há material
 
+/** Comprimento das castanhas da placa (o resto do trecho preso fica dentro da placa). */
+export const JAW_LENGTH = 30;
+
+/**
+ * diameter: Ø externo do bruto; bore: Ø interno (tubo; 0 = maciço);
+ * length: comprimento em balanço (fora da placa, útil para usinar);
+ * clamp: comprimento preso na placa; faceZ: posição da face bruta (zero peça = Z0).
+ */
 export class StockModel {
-  constructor({ diameter, length, faceZ, clamp = 25 }) {
+  constructor({ diameter, length, faceZ, clamp = 25, bore = 0 }) {
     this.R0 = diameter / 2;
+    this.Ri0 = Math.max(0, Math.min(bore / 2, this.R0 - 0.5));
     this.length = length;
     this.faceZ = faceZ;
     this.zLeft = faceZ - length;
@@ -37,7 +46,7 @@ export class StockModel {
 
   reset() {
     this.r.fill(this.R0);
-    this.ri.fill(0);
+    this.ri.fill(this.Ri0);
     this.cut.fill(0);
     this.markDirty(0, this.N - 1);
   }
@@ -82,32 +91,58 @@ export class StockModel {
       up[k] = upperBoundary(tool.insert, dz) ?? -1e9;
       inCut[k] = dz >= c0 - 1e-9 && dz <= c1 + 1e-9 ? 1 : 0;
     }
-    t = { z0, z1, step, low, up, inCut };
+    // vértices da pastilha com as bordas exatas: o corte entre dois passos é avaliado
+    // no instante em que cada vértice passa sobre a amostra (a ponta é um vértice)
+    const verts = [...new Set(tool.insert.map(([dz]) => dz))].map((dz) => ({
+      dz,
+      low: lowerBoundary(tool.insert, dz) ?? 1e9,
+      up: upperBoundary(tool.insert, dz) ?? -1e9,
+    }));
+    t = { z0, z1, step, low, up, inCut, verts };
     this.toolTables.set(tool.type, t);
     return t;
   }
 
   /**
    * Remove material com a ponta da ferramenta em (z, x), x = raio programado.
+   * (pz, px) é a posição anterior da ponta: o trecho entre as duas é varrido de forma
+   * exata nos vértices da pastilha (sem isso, a ponta "pula" as amostras e deixa
+   * centésimos de material: Ø46,05 em vez de Ø46).
    * Retorna { removed, parted, collision, offCenter }.
    */
-  carve(tool, z, x) {
+  carve(tool, z, x, pz = z, px = x) {
     const res = { removed: 0, parted: -1, collision: false, offCenter: false };
-    if (tool.kind === 'external' && x >= this.R0) return res;
+    if (tool.kind === 'external' && x >= this.R0 && px >= this.R0) return res;
     const offAxis = tool.kind === 'axial' && Math.abs(x) > 0.05;
     const t = this.table(tool);
-    const i0 = Math.max(0, Math.ceil((z + t.z0 - this.zLeft) / this.h));
-    const i1 = Math.min(this.N - 1, Math.floor((z + t.z1 - this.zLeft) / this.h));
+    const dzMove = z - pz;
+    const i0 = Math.max(0, Math.ceil((Math.min(z, pz) + t.z0 - this.zLeft) / this.h));
+    const i1 = Math.min(this.N - 1, Math.floor((Math.max(z, pz) + t.z1 - this.zLeft) / this.h));
     const { r, ri } = this;
+    const nT = t.low.length;
     let hitZero = false;
     for (let i = i0; i <= i1; i++) {
       if (r[i] - ri[i] < GONE) continue; // sem material nesta posição
-      const k = (this.zAt(i) - z - t.z0) / t.step;
-      const ka = Math.max(0, Math.min(t.low.length - 1, Math.floor(k)));
-      const kb = Math.min(t.low.length - 1, ka + 1);
+      const zi = this.zAt(i);
+      const k = (zi - z - t.z0) / t.step;
+      const inside = k >= -1e-6 && k <= nT - 1 + 1e-6; // a ferramenta (na posição atual) cobre a amostra
+      const ka = Math.max(0, Math.min(nT - 1, Math.floor(k)));
+      const kb = Math.min(nT - 1, ka + 1);
       const f = Math.min(1, Math.max(0, k - ka));
-      const low = x + t.low[ka] * (1 - f) + t.low[kb] * f;
-      const up = x + t.up[ka] * (1 - f) + t.up[kb] * f;
+      let low = inside ? x + t.low[ka] * (1 - f) + t.low[kb] * f : 1e9;
+      let up = inside ? x + t.up[ka] * (1 - f) + t.up[kb] * f : -1e9;
+      const lowNow = low;
+      // varredura exata: cada vértice passando sobre a amostra durante o passo
+      if (Math.abs(dzMove) > 1e-9) {
+        for (const v of t.verts) {
+          const sv = (zi - v.dz - pz) / dzMove;
+          if (sv < 0 || sv > 1) continue;
+          const xs = px + (x - px) * sv;
+          if (xs + v.low < low) low = xs + v.low;
+          if (xs + v.up > up) up = xs + v.up;
+        }
+      }
+      if (low > 1e8 && up < -1e8) continue;
 
       if (offAxis) {
         // broca fora do centro: só é problema se encostar no material
@@ -131,9 +166,9 @@ export class StockModel {
         // broca (simétrica em X0) ou ferramenta interna: abre o furo até "up".
         // Material sob a ferramenta interna: na pastilha, até 1 mm vira cavaco
         // (aresta frontal cortando um ressalto); no corpo da barra é colisão.
-        if (tool.kind === 'internal' && low < r[i] && up > ri[i] && ri[i] < Math.abs(low) - 0.2) {
+        if (inside && tool.kind === 'internal' && lowNow < r[i] && up > ri[i] && ri[i] < Math.abs(lowNow) - 0.2) {
           const tol = t.inCut[ka] ? 1.0 : 0.2;
-          if (ri[i] < Math.abs(low) - tol) {
+          if (ri[i] < Math.abs(lowNow) - tol) {
             res.collision = true;
             return res;
           }

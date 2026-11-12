@@ -135,11 +135,15 @@ export class Simulator {
     if (tool.kind === 'external' && r0 >= stock.R0 && r1 >= stock.R0) return true;
     const L = Math.hypot(z1 - z0, r1 - r0);
     const n = Math.max(1, Math.ceil(L / (stock.h * 0.7)));
+    let pz = z0;
+    let pr = r0;
     for (let i = 1; i <= n; i++) {
       const f = i / n;
       const z = z0 + (z1 - z0) * f;
       const r = r0 + (r1 - r0) * f;
-      const res = stock.carve(tool, z, r);
+      const res = stock.carve(tool, z, r, pz, pr);
+      pz = z;
+      pr = r;
       if (res.collision || res.offCenter) {
         this.pos = { z, r };
         this.raise(res.collision ? 'A_BAR' : 'A_DRILL_CENTER', line);
