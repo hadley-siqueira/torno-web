@@ -3,9 +3,9 @@ import { LatheScene } from './scene.js';
 import { Rulers } from './rulers.js';
 import { api, ApiError } from './api.js';
 import { applyI18n, guessLang, rememberLang } from './i18n-dom.js';
-import { parseProgram, stockFromHeader } from '/shared/gcode.js';
+import { parseProgram, stockFromProgram } from '/shared/gcode.js';
 import { t, formatMessage, apiErrorText, LANGS } from '/shared/i18n.js';
-import { TOOL_TYPES, TOOL_SLOTS, TURRET_DEFAULT, buildTurret, sanitizeTurret, toolName } from '/shared/tools.js';
+import { TOOL_TYPES, TOOL_SLOTS, TURRET_DEFAULT, TURRET_PRESETS, buildTurret, sanitizeTurret, toolName } from '/shared/tools.js';
 import { Simulator } from '/shared/simulator.js';
 
 const $ = (id) => document.getElementById(id);
@@ -49,9 +49,18 @@ const sim = new Simulator({
   home: ui.home,
   hooks: {
     status: (s) => setStatus(s),
-    eventStart: (ev) => highlightLine(ev.line),
+    eventStart: (ev) => {
+      highlightLine(ev.line);
+      // corretor D com outro corte (bedame D2 = canto direito): desloca a ferramenta na cena
+      const dz = sim.currentTool?.edgeDz ?? 0;
+      if (dz !== ui.edgeDz) {
+        ui.edgeDz = dz;
+        scene.setTool(sim.tool, dz);
+      }
+    },
     toolChange: (id, ev) => {
-      scene.setTool(id);
+      ui.edgeDz = sim.currentTool?.edgeDz ?? 0;
+      scene.setTool(id, ui.edgeDz);
       msgCode(ev, 'info', ev.line);
     },
     pause: (ev) => msgCode(ev, 'info', ev.line),
@@ -403,7 +412,15 @@ function renderToolList() {
   reset.className = 'btn sm';
   reset.textContent = tr('restore_default');
   reset.onclick = () => applyTurret({ ...TURRET_DEFAULT });
-  box.appendChild(reset);
+  const apostila = document.createElement('button');
+  apostila.className = 'btn sm';
+  apostila.textContent = tr('turret_apostila');
+  apostila.title = tr('turret_apostila_help');
+  apostila.onclick = () => applyTurret({ ...TURRET_PRESETS.apostila });
+  const row = document.createElement('div');
+  row.className = 'turret-presets';
+  row.append(reset, apostila);
+  box.appendChild(row);
 }
 
 function applyTurret(cfg, save = true) {
@@ -470,6 +487,26 @@ function updateStockInfo() {
 
 const fmtNum = (n) => String(Math.round(n * 100) / 100);
 
+function announceWorkpiece(st) {
+  if (st?.source !== 'workpiece') return;
+  msgKey('S_STOCK_WORKPIECE', {
+    d: fmtNum(st.diameter),
+    bore: st.bore ? ` / Ø${fmtNum(st.bore)}` : '',
+    total: fmtNum(st.length + st.clamp),
+    len: fmtNum(st.length),
+    clamp: fmtNum(st.clamp),
+    face: fmtNum(st.faceZ),
+  }, 'info');
+}
+
+function sameStock(a, b) {
+  if (!a || !b) return false;
+  const eq = (x, y) => Math.abs((x || 0) - (y || 0)) < 1e-6;
+  const clampA = Math.min(100, Math.max(5, a.clamp ?? 25));
+  return eq(a.diameter, b.diameter) && eq(a.bore, b.bore) && eq(a.faceZ, b.faceZ) &&
+    eq(clampA, b.clamp) && eq(a.length + (a.clamp ?? 25) - clampA, b.length);
+}
+
 function applyStock() {
   const { params: p, error } = readStockInputs();
   updateStockInfo();
@@ -487,11 +524,12 @@ function applyStock() {
   return true;
 }
 
-// Ajusta os campos da peça bruta conforme o cabeçalho do programa (ver stockFromHeader).
-// O cabeçalho descreve o bruto inteiro: sem "tubo", é barra maciça.
-function stockFromHeaderInputs(code) {
-  const st = stockFromHeader(code);
+// Ajusta os campos da peça bruta conforme o programa: WORKPIECE(...) do Operate ou o
+// comentário "; Bruto: ..." (ver stockFromProgram). Descrevem o bruto inteiro: sem tubo, é maciço.
+function stockFromHeaderInputs(code, announce = true) {
+  const st = stockFromProgram(code);
   if (!st) return false;
+  if (announce) announceWorkpiece(st);
   const clamp = st.clamp ?? clampNum($('stockC').value, 5, 100, 25);
   setStockInputs({
     diameter: st.diameter,
@@ -558,6 +596,7 @@ function resetScene() {
   if (scene.finished) showFinished(false);
   $('btnFinished').classList.remove('on');
   scene.clearFalling();
+  ui.edgeDz = 0;
   scene.setTool(sim.tool);
   scene.setToolPos(sim.pos.z, sim.pos.r);
   scene.setToolAlarm(false);
@@ -572,8 +611,16 @@ function cycleStart(turbo = false) {
     return;
   }
   if (sim.status !== 'hold') {
-    // reset / fim / alarme -> reinicia o programa
+    // reset / fim / alarme -> reinicia o programa.
+    // WORKPIECE no programa define a peça bruta (como no SinuTrain): aplica se mudou.
+    const wp = stockFromProgram(ta.value);
+    const changed = wp?.source === 'workpiece' && !sameStock(wp, readStockInputs().params);
+    if (changed) {
+      stockFromHeaderInputs(ta.value, false);
+      if (!applyStock()) return;
+    }
     prepare();
+    if (changed) announceWorkpiece(wp);
     resetScene();
   }
   sim.run();

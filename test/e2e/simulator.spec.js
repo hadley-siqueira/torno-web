@@ -204,3 +204,37 @@ test('etiqueta mostra quem desenha o 3D (placa de vídeo ou software)', async ({
   await page.waitForTimeout(2500);
   await expect(page.locator('#fps')).toHaveText('0');
 });
+
+test('programa do SinuTrain com WORKPIECE e torre da apostila', async ({ page }) => {
+  // montagem da apostila: T2 = bedame
+  await page.locator('details.settings summary').nth(1).click();
+  await page.getByRole('button', { name: 'Montagem da apostila' }).click();
+  await expect(page.locator('#toolList select').nth(1)).toHaveValue('groove_3');
+  await setCode(page, `N10 WORKPIECE(,,,"CYLINDER",0,2,120,100,82.55)
+N20 G18 G54 G71 G90 G96
+N30 G0 X200 Z200
+N40 T1 D1
+N50 S200 M4
+N60 G0 X84.55 Z0
+N70 G1 X-1 F0.02
+N80 G0 Z2
+N90 X80
+N100 G1 Z-60 F0.2
+N110 X84
+N120 G0 X200 Z200
+N130 T2 D2
+N140 G0 X84 Z-60
+N150 G1 X0 F0.05
+N160 G0 X200 Z200
+N170 M2`);
+  await runToEnd(page);
+  await expect(status(page)).toHaveText('FIM');
+  // a peça bruta veio do WORKPIECE
+  await expect(page.locator('#stockD')).toHaveValue('82.55');
+  await expect(page.locator('#stockT')).toHaveValue('120');
+  await expect(page.locator('#stockC')).toHaveValue('20');
+  const msgs = page.locator('#messages');
+  await expect(msgs).toContainText('Peça bruta do WORKPIECE: Ø82.55');
+  await expect(msgs).toContainText('Avanço F0.02 abaixo do usual para T1');
+  await expect(msgs).toContainText('Peça separada');
+});

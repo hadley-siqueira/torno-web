@@ -104,6 +104,7 @@ textarea#code[readonly] { color: #b9c6d2; }
 .viewport canvas { display: block; }
 .viewport canvas.rulers { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .viewport.measuring canvas { cursor: crosshair; }
+.turret-presets { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
 .stock-info { grid-column: 1 / -1; font-size: 11px; color: var(--muted); }
 .stock-info.err { color: var(--err); }
 .dro {

@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseProgram, stockFromHeader } from '../../shared/gcode.js';
+import { parseProgram, stockFromProgram } from '../../shared/gcode.js';
 import { StockModel } from '../../shared/stock-model.js';
 import { Simulator } from '../../shared/simulator.js';
 import { buildTurret } from '../../shared/tools.js';
@@ -11,7 +11,7 @@ export const PROGRAMS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url
 export const readProgram = (name) => readFileSync(path.join(PROGRAMS_DIR, name), 'utf8');
 
 export function runProgram(code, { stock: stockParams, turret = buildTurret(), dialect } = {}) {
-  const params = { diameter: 50, length: 80, faceZ: 1, ...(stockFromHeader(code) || {}), ...(stockParams || {}) };
+  const params = { diameter: 50, length: 80, faceZ: 1, ...(stockFromProgram(code) || {}), ...(stockParams || {}) };
   const home = { x: Math.max(150, params.diameter + 40), z: 100 };
   const parsed = parseProgram(code, { home, turret, dialect });
   const stock = new StockModel(params);

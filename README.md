@@ -93,18 +93,27 @@ API (todas exigem login, exceto cadastro e login; alterações só com JSON da m
 - Movimento: `G0`, `G1`, `G2`/`G3` (com `I`/`K` ou `CR=`/`R`), `G33`/`G32` (rosca como avanço reto)
 - Modos: `G90`/`G91`, `G94`/`G95` (e `G98`/`G99` Fanuc), `G96`/`G97`, `LIMS=`, `G50 S`, `DIAMON`/`DIAMOF`
 - Fanuc: `U`/`W` incrementais, `T0101`, `G28 U0 W0`, `O`, `%`, comentários `( )`
-- Sinumerik: `T1 D1`, comentários `;`, `G4 F` (espera)
+- Sinumerik: `T1 D1`, comentários `;`, `G4 F` (espera), `G71` (mm), `G54`
+- Peça bruta do SINUMERIK Operate (SinuTrain): `WORKPIECE(,,,"CYLINDER",0,2,120,100,82.55)` e `"PIPE"`
+  (tubo) — lida ao abrir o programa e no Cycle Start
+- Corretor `D`: no bedame, `D1` = canto esquerdo e `D2` = canto direito
 - `M3`/`M4`/`M5`, `M0`/`M1` (parada), `M2`/`M30`, `M8`/`M9`
 - Convenções: X em diâmetro, Z=0 na face, G2 = horário com X para cima.
 
 Alarmes simulados: G0 dentro do material, ferramenta na peça com fuso parado,
 colisão com a placa, F ausente, arco inválido, ferramenta inexistente, erro de sintaxe.
 
+Avisos didáticos (não param o programa): avanço fora da faixa usual da ferramenta (ex.: `F0.02` no
+desbaste), broca andando em avanço fora do centro, e `CHF=`/`CHR=`/`RND=`/`ANG=` ainda não executados.
+
 Torre de 8 posições **configurável** (painel "Torre" no simulador): cada posição recebe uma ferramenta
 do catálogo – desbaste 80°, acabamento 55° e 35°, bedame 3 mm, rosca externa e interna 60°, broca de
 centro, brocas Ø6/10/12/16/20 e barra de mandrilar – ou fica vazia. Montagem padrão (usada nos exemplos):
 T1 desbaste 80°, T2 acabamento 35°, T3 bedame, T4 rosca externa, T5 broca de centro, T6 broca Ø16,
-T7 barra de mandrilar, T8 rosca interna.
+T7 barra de mandrilar, T8 rosca interna. O botão **"Montagem da apostila"** monta a torre dos
+exercícios do professor: T1 desbaste, T2 bedame, T6 rosca externa, T8 acabamento.
+
+O Ø externo da peça bruta sugere as bitolas em polegadas (1", 1 1/8", 2", 3 1/4", 3 5/8"…).
 
 Usinagem externa, furação (só em X0) e usinagem interna removem material; alarmes de colisão também
 para broca fora do centro e corpo da barra de mandrilar batendo no material.

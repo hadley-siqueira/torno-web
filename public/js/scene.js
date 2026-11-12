@@ -237,12 +237,16 @@ export class LatheScene {
     this.invalidate();
   }
 
-  setTool(id) {
-    for (const [k, g] of Object.entries(this.toolMeshes)) g.visible = Number(k) === id;
+  /** Mostra a ferramenta da posição id; edgeDz desloca a ferramenta quando o corretor D usa outro corte. */
+  setTool(id, edgeDz = 0) {
+    for (const [k, g] of Object.entries(this.toolMeshes)) {
+      g.visible = Number(k) === id;
+      g.position.x = Number(k) === id ? edgeDz : 0;
+    }
     this.toolId = id;
     // a torre fica sobre o suporte da ferramenta ativa
     const h = this.toolMeshes[id]?.userData.holder;
-    if (h) this.turretBox.position.set((h.z0 + h.z1) / 2, h.x1 + 15, -2);
+    if (h) this.turretBox.position.set((h.z0 + h.z1) / 2 + edgeDz, h.x1 + 15, -2);
     this.invalidate();
   }
 

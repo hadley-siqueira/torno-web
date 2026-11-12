@@ -179,23 +179,23 @@ Ciclos do **802D sl** (são estes que os alunos usam na máquina):
 
 Ideias tiradas da apostila do professor (ver Contexto):
 
-- [ ] **Avisar** (já) quando `RND=`, `CHR=`, `CHF=`, `ANG=`, `RNDM=` forem ignorados; depois
+- [x] **Avisar** (feito em 2026-11-11) quando `RND=`, `CHR=`, `CHF=`, `ANG=`, `RNDM=` forem ignorados; depois
       **implementar** chanfro/arredondamento entre dois movimentos e a reta por ângulo.
-- [ ] **Torre "da apostila"** como opção pronta: T1 desbaste, T2 bedame, T6 rosca externa, T8 acabamento
+- [x] **Torre "da apostila"** (2026-11-11) como opção pronta: T1 desbaste, T2 bedame, T6 rosca externa, T8 acabamento
       (as posições da torre do TornoWeb não batem com as dos exercícios).
-- [ ] **Bedame com dois cortes:** D1 = canto esquerdo, D2 = canto direito.
+- [x] **Bedame com dois cortes** (2026-11-11): D1 = canto esquerdo, D2 = canto direito.
 - [ ] **Zero peça na face esquerda** (`G58`/`G54` com Z positivo): peça de Z0 (lado da placa) até Z+comprimento.
 - [ ] **CYCLE95 com rótulos** (`"INICIO:FIM"`, contorno depois do M2) e **CYCLE97** com os parâmetros da apostila.
-- [ ] **Brutos em polegadas** na lista da peça bruta (1", 1 1/8", 2", 2 3/4", 3 1/4", 3 5/8").
+- [x] **Brutos em polegadas** (2026-11-11) na lista da peça bruta (1", 1 1/8", 2", 2 3/4", 3 1/4", 3 5/8"). Obs.: a apostila chama 60,33 mm de 2 3/4", mas 60,33 mm = **2 3/8"** (2 3/4" = 69,85 mm); vale avisar o professor.
 - [ ] **Exercícios da apostila** como exemplos/testes automáticos (pedir autorização ao professor).
 
 Ideias tiradas dos vídeos dos alunos (ver Contexto):
 
-- [ ] **`WORKPIECE(...)` no programa** (prioridade alta): hoje o programa real do aluno **para na 1ª linha**
+- [x] **`WORKPIECE(...)` no programa** (2026-11-11) (prioridade alta): hoje o programa real do aluno **para na 1ª linha**
       com "palavra desconhecida". Ler `"CYLINDER"`/`"PIPE"` e ajustar a peça bruta (Ø, tubo, comprimento,
       face, limite de usinagem → comprimento nas castanhas). Confirmar os sinais de ZI/ZB com um programa
       completo (incremental × absoluto).
-- [ ] **Aviso de avanço fora da faixa** da ferramenta (ex.: desbaste com `F0.02` → tempo enorme) e de
+- [x] **Aviso de avanço fora da faixa** (2026-11-11) da ferramenta (ex.: desbaste com `F0.02` → tempo enorme) e de
       **ferramenta errada para o movimento** (broca chamada e movida fora do centro, mesmo sem encostar).
 - [ ] **Override da simulação em %** (como o "Controle de progr."), além da velocidade atual.
 - [ ] **Nomes de ferramenta como no Operate** na barra de estado/torre (ex.: ROUGHING_T80 A), opcional.

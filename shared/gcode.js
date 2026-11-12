@@ -9,7 +9,7 @@
 //  - Pontos dos eventos: [z, r, t, rpm], t = tempo acumulado (s) dentro do evento.
 //  - Mensagens saem como { code, params }; o texto vem de shared/i18n.js (PT/EN).
 
-import { getTool, DEFAULT_TURRET } from './tools.js';
+import { getTool, withEdge, DEFAULT_TURRET } from './tools.js';
 
 export const DEFAULTS = {
   home: { x: 150, z: 100 }, // X em diâmetro
@@ -22,6 +22,9 @@ export const DEFAULTS = {
   dialect: 'sinumerik', // 'sinumerik' | 'fanuc' (decide o significado de G70/G71)
   turret: DEFAULT_TURRET, // ferramentas montadas: { posição: ferramenta } (ver buildTurret)
 };
+
+// Chanfro/arredondamento e elementos de contorno do Sinumerik: ainda não executados
+const CONTOUR_WORDS = new Set(['CHF', 'CHR', 'RND', 'RNDM', 'ANG', 'FRC', 'FRCM']);
 
 const IGNORED_G = new Set([9, 17, 18, 19, 40, 53, 54, 55, 56, 57, 58, 59, 60, 64, 80, 500]);
 const TWO_PI = Math.PI * 2;
@@ -54,8 +57,11 @@ export function parseProgram(text, options = {}) {
     lims: opt.maxRpm,
     spindle: 0, // 0 parado, 3 horário, 4 anti-horário
     tool: getTool(opt.defaultTool, opt.turret) ? opt.defaultTool : Number(Object.keys(opt.turret)[0] || 1),
+    D: 1, // corretor (corte) da ferramenta
     coolant: false,
   };
+  let workpiece = null;
+  const warnedFeed = new Set(); // avisa uma vez por ferramenta/avanço
 
   const events = [];
   const warnings = [];
@@ -73,6 +79,23 @@ export function parseProgram(text, options = {}) {
 
   const warn = (line, code, params = {}) => warnings.push({ line, code, params });
 
+  // Avisos didáticos num movimento de corte (G1/G2/G3) até o raio r1
+  const checkCut = (line, r1) => {
+    const tool = withEdge(getTool(st.tool, opt.turret), st.D);
+    if (!tool) return;
+    if (tool.kind === 'axial' && (Math.abs(r1) > 0.05 || Math.abs(st.r) > 0.05)) {
+      warn(line, 'W_AXIAL_OFF_CENTER', { t: st.tool, type: tool.type.split('@')[0] });
+    }
+    const [lo, hi] = tool.feed || [];
+    if (lo !== undefined && st.feedPerRev && st.F > 0 && (st.F < lo || st.F > hi)) {
+      const key = `${st.tool}:${st.F}`;
+      if (!warnedFeed.has(key)) {
+        warnedFeed.add(key);
+        warn(line, st.F < lo ? 'W_FEED_LOW' : 'W_FEED_HIGH', { f: st.F, min: lo, max: hi, t: st.tool, type: tool.type.split('@')[0] });
+      }
+    }
+  };
+
   const rpmAt = (r) => {
     if (!st.spindle) return 0;
     let n;
@@ -84,6 +107,7 @@ export function parseProgram(text, options = {}) {
   const snapshot = () => ({
     spindle: st.spindle,
     tool: st.tool,
+    D: st.D,
     F: st.F,
     feedPerRev: st.feedPerRev,
     css: st.css,
@@ -214,6 +238,17 @@ export function parseProgram(text, options = {}) {
 
   for (let li = 0; li < lines.length && !alarm && !ended; li++) {
     const raw = lines[li];
+    // Peça bruta do SINUMERIK Operate: WORKPIECE(,,,"CYLINDER",0,2,120,100,82.55)
+    // (antes de remover "( ... )", que no Fanuc é comentário)
+    const noComment = raw.replace(/;.*$/, '').trim();
+    if (/^(N\d+\s*)?WORKPIECE\s*\(/i.test(noComment)) {
+      const wp = parseWorkpiece(noComment);
+      if (!wp) warn(li, 'W_WORKPIECE_IGNORED');
+      else if (!workpiece) workpiece = { ...wp, line: li };
+      stats.blocks++;
+      push({ line: li, type: 'state', duration: 0 });
+      continue;
+    }
     let src = raw
       .replace(/\([^)]*\)/g, ' ')
       .replace(/;.*$/, '')
@@ -270,6 +305,11 @@ export function parseProgram(text, options = {}) {
         const num = parseInt(v.replace(/\D/g, ''), 10);
         val.T = Number.isFinite(num) ? num : NaN;
       } else val[w] = parseFloat(v);
+    }
+    const ignoredContour = Object.keys(val).filter((w) => CONTOUR_WORDS.has(w));
+    if (ignoredContour.length) {
+      warn(li, 'W_CONTOUR_IGNORED', { k: ignoredContour.join(', ') });
+      for (const w of ignoredContour) delete val[w];
     }
 
     try {
@@ -353,6 +393,13 @@ export function parseProgram(text, options = {}) {
         }
       }
 
+      // ---- Corretor D (corte da ferramenta: ex. bedame D2 = canto direito) ----
+      if ('D' in val) {
+        const d = Math.round(val.D);
+        if (d < 0 || d > 9) throw new GCodeAlarm('E_D_INVALID', { d: val.D });
+        st.D = d === 0 ? 1 : d;
+      } else if ('T' in val) st.D = 1;
+
       // ---- M antes do movimento ----
       for (const code of m) {
         if (code === 3 || code === 4) {
@@ -396,6 +443,7 @@ export function parseProgram(text, options = {}) {
           if ('W' in val) z1 = st.z + val.W;
 
           const mo = st.motion;
+          if (mo === 1 || mo === 2 || mo === 3) checkCut(li, r1);
           if (mo === 0) motionEvent(li, 'rapid', [[st.z, st.r], [z1, r1]]);
           else if (mo === 1) motionEvent(li, 'feed', [[st.z, st.r], [z1, r1]]);
           else if (mo === 33) {
@@ -461,7 +509,65 @@ export function parseProgram(text, options = {}) {
       maxRpm: Math.round(stats.maxRpm),
     },
     lineCount: lines.length,
+    workpiece,
   };
+}
+
+/**
+ * WORKPIECE do SINUMERIK Operate (peça bruta no programa):
+ *   WORKPIECE(,,,"CYLINDER", ref, ZA, ZI, ZB, XA)      cilindro
+ *   WORKPIECE(,,,"PIPE",     ref, ZA, ZI, ZB, XA, XI)  tubo
+ * ZA = face do bruto; ZI = fim (positivo: comprimento a partir de ZA; negativo: posição);
+ * ZB = limite de usinagem (idem); XA = Ø externo; XI = Ø interno.
+ * Devolve { diameter, length (em balanço), faceZ, clamp, bore?, total } ou null.
+ * Ex. de aluno: WORKPIECE(,,,"CYLINDER",0,2,120,100,82.55) -> Ø82,55, face em Z2,
+ * 120 mm de bruto, 100 mm usináveis (20 mm na placa).
+ * A interpretação de ZI/ZB positivos como comprimentos ainda deve ser conferida num SinuTrain.
+ */
+export function parseWorkpiece(text) {
+  const m = String(text).match(/WORKPIECE\s*\((.*)\)/i);
+  if (!m) return null;
+  const args = [];
+  let cur = '';
+  let q = false;
+  for (const ch of m[1]) {
+    if (ch === '"') q = !q;
+    else if (ch === ',' && !q) {
+      args.push(cur.trim());
+      cur = '';
+      continue;
+    }
+    cur += ch;
+  }
+  args.push(cur.trim());
+  const kind = (args[3] || '').replace(/"/g, '').toUpperCase();
+  if (kind !== 'CYLINDER' && kind !== 'PIPE') return null;
+  const n = (i) => (args[i] === undefined || args[i] === '' ? NaN : Number(args[i]));
+  const za = Number.isFinite(n(5)) ? n(5) : 0;
+  const zi = n(6);
+  const zb = n(7);
+  const xa = n(8);
+  if (!Number.isFinite(xa) || xa <= 0 || !Number.isFinite(zi)) return null;
+  const total = zi > 0 ? zi : za - zi;
+  let length = Number.isFinite(zb) ? (zb > 0 ? zb : za - zb) : total - 25;
+  length = Math.min(length, total);
+  if (total <= 0 || length <= 0) return null;
+  const out = { diameter: xa, length, faceZ: za, clamp: Math.max(0, total - length), total };
+  const xi = n(9);
+  if (kind === 'PIPE' && Number.isFinite(xi) && xi > 0 && xi < xa) out.bore = xi;
+  return out;
+}
+
+/** Peça bruta definida pelo programa: WORKPIECE(...) ou o comentário "; Bruto: ...". */
+export function stockFromProgram(code) {
+  const line = String(code).split(/\r?\n/).find((l) => /^\s*(N\d+\s*)?WORKPIECE\s*\(/i.test(l));
+  const wp = line && parseWorkpiece(line);
+  if (wp) {
+    const { total, ...rest } = wp;
+    return { ...rest, source: 'workpiece' };
+  }
+  const h = stockFromHeader(code);
+  return h && { ...h, source: 'header' };
 }
 
 function sweep(z0, r0, z1, r1, cz, cr, cw) {

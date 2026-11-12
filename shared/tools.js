@@ -13,6 +13,9 @@
 //   'internal' – usina por dentro de um furo (ponta voltada para +X)
 //   'axial'    – broca no centro da peça (X0)
 // O suporte (holder) é apenas visual.
+// feed: faixa típica de avanço em mm/rot (fora dela o interpretador avisa; não é alarme).
+// edges: outros cortes da mesma ferramenta, escolhidos pelo corretor D (ex.: bedame
+//   D1 = canto esquerdo, D2 = canto direito); dz desloca o ponto de referência.
 
 const deg = (a) => (a * Math.PI) / 180;
 const polar = (len, angDeg) => [len * Math.cos(deg(angDeg)), len * Math.sin(deg(angDeg))];
@@ -39,6 +42,7 @@ export const TOOL_TYPES = {
     color: 0xd4a017,
     insert: rhombus(12, 85, 5),
     holder: { z0: 3, z1: 23, x0: 9, x1: 70 },
+    feed: [0.1, 0.6],
   },
   ext_finish_55: {
     kind: 'external',
@@ -47,6 +51,7 @@ export const TOOL_TYPES = {
     color: 0xb0b8c8,
     insert: rhombus(13, 87, 32),
     holder: { z0: 4, z1: 22, x0: 14, x1: 70 },
+    feed: [0.03, 0.35],
   },
   ext_finish_35: {
     kind: 'external',
@@ -55,6 +60,7 @@ export const TOOL_TYPES = {
     color: 0xc0c0d0,
     insert: rhombus(14, 87, 52),
     holder: { z0: 4, z1: 22, x0: 18, x1: 70 },
+    feed: [0.03, 0.35],
   },
   groove_3: {
     kind: 'external',
@@ -63,6 +69,8 @@ export const TOOL_TYPES = {
     color: 0x5aa0e0,
     insert: [[0, 0], [3, 0], [3, 25], [0, 25]],
     holder: { z0: 0, z1: 20, x0: 25, x1: 70 },
+    feed: [0.01, 0.2],
+    edges: { 2: { dz: -3, name: { pt: 'canto direito', en: 'right corner' } } },
   },
   thread_ext_60: {
     kind: 'external',
@@ -79,12 +87,13 @@ export const TOOL_TYPES = {
     color: 0xb8b8b8,
     insert: [[0, 0], [1, 1.5], [4, 1.5], [6, 4], [40, 4], [40, -4], [6, -4], [4, -1.5], [1, -1.5]],
     holder: { z0: 40, z1: 65, x0: -14, x1: 14 },
+    feed: [0.02, 0.25],
   },
-  drill_6: { kind: 'axial', name: { pt: 'Broca helicoidal Ø6', en: 'Twist drill Ø6' }, detail: { pt: 'Ponta no eixo da peça (X0)', en: 'Tip on the spindle axis (X0)' }, color: 0x8f8f9a, insert: drill(6, 60), holder: { z0: 60, z1: 85, x0: -14, x1: 14 } },
-  drill_10: { kind: 'axial', name: { pt: 'Broca helicoidal Ø10', en: 'Twist drill Ø10' }, detail: { pt: 'Ponta no eixo da peça (X0)', en: 'Tip on the spindle axis (X0)' }, color: 0x8f8f9a, insert: drill(10, 70), holder: { z0: 70, z1: 95, x0: -14, x1: 14 } },
-  drill_12: { kind: 'axial', name: { pt: 'Broca helicoidal Ø12', en: 'Twist drill Ø12' }, detail: { pt: 'Ponta no eixo da peça (X0)', en: 'Tip on the spindle axis (X0)' }, color: 0x8f8f9a, insert: drill(12, 75), holder: { z0: 75, z1: 100, x0: -14, x1: 14 } },
-  drill_16: { kind: 'axial', name: { pt: 'Broca helicoidal Ø16', en: 'Twist drill Ø16' }, detail: { pt: 'Ponta no eixo da peça (X0)', en: 'Tip on the spindle axis (X0)' }, color: 0x8f8f9a, insert: drill(16, 85), holder: { z0: 85, z1: 110, x0: -16, x1: 16 } },
-  drill_20: { kind: 'axial', name: { pt: 'Broca helicoidal Ø20', en: 'Twist drill Ø20' }, detail: { pt: 'Ponta no eixo da peça (X0)', en: 'Tip on the spindle axis (X0)' }, color: 0x8f8f9a, insert: drill(20, 95), holder: { z0: 95, z1: 120, x0: -18, x1: 18 } },
+  drill_6: { kind: 'axial', name: { pt: 'Broca helicoidal Ø6', en: 'Twist drill Ø6' }, detail: { pt: 'Ponta no eixo da peça (X0)', en: 'Tip on the spindle axis (X0)' }, color: 0x8f8f9a, insert: drill(6, 60), holder: { z0: 60, z1: 85, x0: -14, x1: 14 }, feed: [0.03, 0.4] },
+  drill_10: { kind: 'axial', name: { pt: 'Broca helicoidal Ø10', en: 'Twist drill Ø10' }, detail: { pt: 'Ponta no eixo da peça (X0)', en: 'Tip on the spindle axis (X0)' }, color: 0x8f8f9a, insert: drill(10, 70), holder: { z0: 70, z1: 95, x0: -14, x1: 14 }, feed: [0.03, 0.4] },
+  drill_12: { kind: 'axial', name: { pt: 'Broca helicoidal Ø12', en: 'Twist drill Ø12' }, detail: { pt: 'Ponta no eixo da peça (X0)', en: 'Tip on the spindle axis (X0)' }, color: 0x8f8f9a, insert: drill(12, 75), holder: { z0: 75, z1: 100, x0: -14, x1: 14 }, feed: [0.03, 0.4] },
+  drill_16: { kind: 'axial', name: { pt: 'Broca helicoidal Ø16', en: 'Twist drill Ø16' }, detail: { pt: 'Ponta no eixo da peça (X0)', en: 'Tip on the spindle axis (X0)' }, color: 0x8f8f9a, insert: drill(16, 85), holder: { z0: 85, z1: 110, x0: -16, x1: 16 }, feed: [0.03, 0.4] },
+  drill_20: { kind: 'axial', name: { pt: 'Broca helicoidal Ø20', en: 'Twist drill Ø20' }, detail: { pt: 'Ponta no eixo da peça (X0)', en: 'Tip on the spindle axis (X0)' }, color: 0x8f8f9a, insert: drill(20, 95), holder: { z0: 95, z1: 120, x0: -18, x1: 18 }, feed: [0.03, 0.4] },
   boring_bar: {
     kind: 'internal',
     name: { pt: 'Barra de mandrilar', en: 'Boring bar' },
@@ -93,6 +102,7 @@ export const TOOL_TYPES = {
     insert: [[0, 0], [3, -1.5], [60, -1.5], [60, -8], [3, -8], [0, -3]],
     cutZone: [0, 3], // faixa dz da pastilha (o resto é o corpo da barra)
     holder: { z0: 60, z1: 85, x0: -16, x1: 10 },
+    feed: [0.03, 0.35],
   },
   thread_int_60: {
     kind: 'internal',
@@ -117,6 +127,16 @@ export const TURRET_DEFAULT = {
   6: 'drill_16',
   7: 'boring_bar',
   8: 'thread_int_60',
+};
+
+/**
+ * Montagens prontas para escolher na tela. "apostila": como nos exercícios da apostila do
+ * professor (T1 desbaste, T2 bedame, T6 rosca externa, T8 acabamento/perfil); as demais
+ * posições ficam vazias.
+ */
+export const TURRET_PRESETS = {
+  default: TURRET_DEFAULT,
+  apostila: { 1: 'ext_rough_80', 2: 'groove_3', 3: '', 4: '', 5: '', 6: 'thread_ext_60', 7: '', 8: 'ext_finish_35' },
 };
 
 /** Valida a configuração da torre: { posição: tipo | '' (vazia) }. */
@@ -192,4 +212,31 @@ export function insertSpan(poly) {
 
 export function getTool(n, turret = DEFAULT_TURRET) {
   return turret[n] || null;
+}
+
+const edgeCache = new Map();
+/**
+ * Ferramenta com o corte escolhido pelo corretor D: D1 (ou um D sem corte próprio) é a
+ * própria ferramenta; um corte de `edges` desloca a pastilha e o suporte de dz, e ganha um
+ * tipo próprio ("groove_3@D2") para o modelo da peça guardar a tabela certa.
+ */
+export function withEdge(tool, d) {
+  const e = tool?.edges?.[d];
+  if (!e) return tool;
+  const key = `${tool.id}:${tool.type}@D${d}`;
+  let t = edgeCache.get(key);
+  if (!t) {
+    const h = tool.holder;
+    t = {
+      ...tool,
+      type: `${tool.type}@D${d}`,
+      edge: d,
+      edgeDz: e.dz,
+      insert: tool.insert.map(([z, x]) => [z + e.dz, x]),
+      holder: { ...h, z0: h.z0 + e.dz, z1: h.z1 + e.dz },
+      cutZone: tool.cutZone && [tool.cutZone[0] + e.dz, tool.cutZone[1] + e.dz],
+    };
+    edgeCache.set(key, t);
+  }
+  return t;
 }

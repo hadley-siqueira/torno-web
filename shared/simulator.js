@@ -13,6 +13,8 @@
 //   parted(part, line)     – peça separada; part = perfil devolvido por stock.separate()
 //   singleStop(nextLine)   – parou no modo bloco a bloco
 
+import { withEdge } from './tools.js';
+
 export const MAX_RPM = 4000;
 
 /** Rotação do fuso para o estado modal e o raio atual. */
@@ -94,8 +96,9 @@ export class Simulator {
     this.hooks.alarm?.(this.alarm);
   }
 
+  /** Ferramenta ativa, com o corte escolhido pelo corretor D (ex.: bedame D2). */
   get currentTool() {
-    return this.turret[this.tool] || null;
+    return withEdge(this.turret[this.tool] || null, this.state?.D ?? 1);
   }
 
   onEventStart(ev) {
