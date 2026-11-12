@@ -3,6 +3,23 @@
 Simulador de torno CNC no navegador, inspirado no SinuTrain: você escreve
 G-code, aperta **Cycle Start** e vê a ferramenta usinando a peça em 3D (Three.js/WebGL).
 
+![Simulador usinando uma peça em 3D: editor com o programa, DRO e ferramenta de desbaste soltando cavacos](docs/img/simulador-3d.png)
+
+| Vista Lateral com réguas | Peça pronta em meio corte |
+|---|---|
+| ![Bucha pronta na vista Lateral: réguas Z e Ø, leitura dos diâmetros e cota entre duas faces](docs/img/reguas-lateral.png) | ![Eixo perfilado pronto em 3D com meio corte, mostrando a gola e o furo](docs/img/peca-pronta.png) |
+| Passe o mouse para ler Z, Ø externo e Ø interno; clique para medir comprimentos. | Ao separar a peça no corte, ela aparece sozinha em destaque. |
+
+<img src="docs/img/bruto-e-torre.png" alt="Painéis da peça bruta (Ø, tubo, comprimento total, castanhas) e da torre de 8 posições" width="300" align="right">
+
+**Peça bruta e torre configuráveis:** Ø externo (com bitolas em polegadas), tubo, comprimento total
+e preso nas castanhas; torre de 8 posições com a montagem padrão ou a da apostila do curso.
+O programa também pode definir a peça com `WORKPIECE(...)`, como no SinuTrain.
+
+<br clear="right">
+
+## Como rodar
+
 ```bash
 npm install
 npm start          # http://localhost:3000 – crie sua conta em "Criar conta"
