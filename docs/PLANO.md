@@ -477,7 +477,8 @@ a mesma sequência (abrir programa, simular, fazer preset, rodar em AUTO) sem pr
 
 ## Referência da máquina
 
-Fotos em `docs/referencia/maquina/`:
+Fotos em `docs/referencia/maquina/` **só na cópia local** (a pasta está no `.gitignore` e não vai para o
+repositório público; peça as fotos ao mantenedor do projeto):
 
 | Foto | O que mostra |
 |---|---|
