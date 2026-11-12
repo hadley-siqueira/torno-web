@@ -61,6 +61,52 @@ Fonte: dois vídeos de tela (sem áudio) de alunos simulando no SinuTrain. Os v�
 - **Erros vistos:** `F0.02` no desbaste deu **1h35 de usinagem** simulada; `T2` chamou uma **broca Ø32**
   (DRILL_32) quando o aluno queria outra ferramenta, e a broca "torneou" o diâmetro externo.
 
+### Apostila do professor (material teórico, analisado em 2026-11-11)
+
+Fonte: apostila em slides "Comando Numérico Computadorizado" (326 páginas) do professor da disciplina.
+O arquivo não está no repositório (material do professor); aqui só o que importa para o simulador.
+
+**Conteúdo, na ordem das aulas:** coordenadas cartesianas e pontos zero (máquina, ferramenta, peça;
+"sugestões de zero peça" na face direita **ou** na esquerda) → coordenadas absolutas e incrementais
+(exercícios de marcar pontos) → estrutura do programa → G0, G1, F/G94/G95, G2/G3 (CR= e I/K),
+S/G96/G97, M3/M4/M5, G70/G71, T e D, G54, M2/M30, G90/G91 → **15 exercícios com passes manuais** →
+ponto comandado da ferramenta e compensação de raio → **CYCLE95** (desbaste de contorno) → G4 →
+**chanfro e arredondamento** (CHF, CHR, RND, RNDM, FRC) e **elementos de contorno** (ANG=) →
+exercícios 14–22 com CYCLE95 → **CYCLE97** (rosca) → exercícios 22–25 e recuperação.
+
+**Convenções que o simulador deve aceitar como "o normal":**
+- Cabeçalho: `N10 G54 G71 G90 G96` (ou `G18 G54 …`), `N20 G0 X200 Z200`, `N30 T1 D1`
+  (às vezes `T1` e `D1` em blocos separados, ou `T01 D01`), `N40 S70 M4`. **Sem G95 explícito**
+  (F em mm/rot por padrão), **M4** e **Vc em S** com G96, sem LIMS. Fim com **M2**.
+- Numeração de blocos de 10 em 10; nomes de programa: começa com 2 letras, só letras/números/_,
+  até 27 caracteres (ex.: PECA536).
+- Brutos em **polegadas** convertidos: 1" (25,4), 1 1/8" (31,75), 2" (50,8), 2 3/4" (60,33),
+  3 1/4" (82,55 — o mesmo do vídeo), 3 5/8" (92,08). Aço 1020. Vc 65–200 m/min.
+- Avanços: desbaste/facear F0.2 (0.1–0.15), bedame F0.02–0.05. Profundidade dada no enunciado
+  (ex.: 1 mm em X, 0,5 mm em Z) e **número de passes definido** (gabarito único, ver Contexto).
+- **Ferramentas da apostila:** T1 desbaste, **T2 bedame** (3 mm; **D1 = canto esquerdo, D2 = canto
+  direito**, "D2; face direita do bedame"), T6 rosca externa, T8 desbaste/acabamento de perfil (com
+  CYCLE95). Corte da peça: `G0 X52 Z-133` para peça de 130 (comprimento + 3 mm do bedame, referência no
+  canto esquerdo — igual ao TornoWeb).
+- **Zero peça** na face direita (G54, Z negativo) nos primeiros exercícios e na **face esquerda**
+  (`G58`, Z positivo: contorno de `Z54` até `Z0`) nos exercícios 19–22.
+- **Cotagem dos desenhos (pergunta 18): mista.** Cotas em paralelo a partir da face (ex. 4: 12, 36,
+  38, 42, 65), em cadeia com total (ex. 14: 25 + 15, total 80) e por coordenadas a partir da face
+  esquerda (ex. 19/20: 0; 7,6; 17,6; 20,6; 28,6; 38; 40; 50). Chanfros como `1x45°`, `1.5 x 45°`, `10x45°`.
+- **CYCLE95** no formato do 802D sl, com o contorno no próprio programa entre rótulos:
+  `CYCLE95("INICIO:FIM", 1.5, 0.1, 0.8, , 0.2, 0.05, 0.1, 9, , , )` (MID, FALZ, FALX, FAL, FF1, FF2, FF3,
+  VARI=9 = desbaste+acabamento externo longitudinal). Contorno começa em `G1 X0 Z4` (2 mm de
+  sobremetal + 2 mm de folga). Valores orientativos: FALZ 0,05–0,1; FALX 0,8–1,0; FF1 0,2; FF2 0,05; FF3 0,1.
+- **CYCLE97** (rosca): fórmulas da apostila: TDEP = 0,65 × passo; NRC = TDEP / 0,1 (arredondar
+  para cima); NID 2–3 com refrigeração, 4–5 sem; APP = 3 × passo; IANG = metade do ângulo do inserto.
+  O exercício 22 está marcado como "dando erro no simulador".
+
+**Teste no TornoWeb (2026-11-11):**
+- Exercício 1 (passes manuais) roda e dá a peça certa (130 mm, Ø48) **só com T2 = bedame**; com a torre
+  padrão do TornoWeb (T2 = acabamento) dá alarme.
+- Exercícios com CYCLE95 não usinam nada (ciclo ignorado com aviso).
+- `RND=`, `CHR=`, `CHF=`, `ANG=` são **ignorados sem aviso** (a peça sai sem o chanfro/raio).
+
 ## Princípios
 
 1. **Fidelidade ao fluxo da máquina, não à aparência de outro software.** SinuTrain e SSCNC
@@ -130,6 +176,18 @@ Ciclos do **802D sl** (são estes que os alunos usam na máquina):
 - [ ] *(Mais tarde, a avaliar)* Programação conversacional por etapas, no estilo ShopTurn.
 
 ### Pedidos de funcionalidade (2026-11-11)
+
+Ideias tiradas da apostila do professor (ver Contexto):
+
+- [ ] **Avisar** (já) quando `RND=`, `CHR=`, `CHF=`, `ANG=`, `RNDM=` forem ignorados; depois
+      **implementar** chanfro/arredondamento entre dois movimentos e a reta por ângulo.
+- [ ] **Torre "da apostila"** como opção pronta: T1 desbaste, T2 bedame, T6 rosca externa, T8 acabamento
+      (as posições da torre do TornoWeb não batem com as dos exercícios).
+- [ ] **Bedame com dois cortes:** D1 = canto esquerdo, D2 = canto direito.
+- [ ] **Zero peça na face esquerda** (`G58`/`G54` com Z positivo): peça de Z0 (lado da placa) até Z+comprimento.
+- [ ] **CYCLE95 com rótulos** (`"INICIO:FIM"`, contorno depois do M2) e **CYCLE97** com os parâmetros da apostila.
+- [ ] **Brutos em polegadas** na lista da peça bruta (1", 1 1/8", 2", 2 3/4", 3 1/4", 3 5/8").
+- [ ] **Exercícios da apostila** como exemplos/testes automáticos (pedir autorização ao professor).
 
 Ideias tiradas dos vídeos dos alunos (ver Contexto):
 
@@ -502,6 +560,5 @@ Nenhuma bloqueia o trabalho atual; as suposições acima cobrem as lacunas.
 | 8 | O que são as duas manivelas do painel da porta? | Como simular JOG/manivela |
 | 9 | Professor que opera a máquina: como os alunos fazem o preset das ferramentas e o zero da peça? | Fluxo de operação a simular |
 | 16 | ~~Confirmar a conferência de medidas~~ **Respondida em parte (professor da disciplina, 2026-11-11):** medem comprimento total e trechos com as réguas dos eixos. Falta: querem desenho em diedro? Conferem diâmetros também? Texto original: a conferência de medidas após a simulação é feita assim (diâmetros e comprimentos entre faces)? Quais instrumentos os alunos usam (paquímetro 0,02 ou 0,05 mm, micrômetro 0,01 mm, súbito)? Querem desenho em diedro? | Libera o [plano de medição](#plano-de-medição-e-conferência-da-peça) e define as resoluções |
-| 18 | Nos desenhos das atividades, as cotas de comprimento são **em paralelo** (todas a partir de uma face), **em cadeia** ou misturadas? | Estilo padrão da cotagem automática ([desenho técnico](#desenho-técnico-a-partir-da-peça-caminho-inverso), fase C) |
 | 20 | Na correção por blocos: o que conta como erro? Ex.: ordem das palavras (`G1 X30 Z-20` × `G1 Z-20 X30`), repetir ou omitir palavras modais (`G1` em toda linha), `X30` × `X30.0`, número de bloco `N`. Um bloco a mais no programa do aluno também é erro? Pedir um gabarito e uma prova corrigida como exemplo | Regras da correção automática |
 | 14 | O perfil "Máquina" deve imitar o **802D sl** (máquina real) ou o **SINUMERIK Operate do 840D sl** (o que os alunos usam no SinuTrain, confirmado pelos vídeos de 2026-11-11)? | Define o alvo do protótipo de interface |
