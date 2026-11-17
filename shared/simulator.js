@@ -15,6 +15,13 @@
 
 import { withEdge } from './tools.js';
 
+// Abaixo disto (mm³) o que se solta da barra é cavaco, não peça
+const MIN_PART_VOLUME = 10;
+const partVolume = (p) => {
+  const h = p.z.length > 1 ? Math.abs(p.z[1] - p.z[0]) : 0;
+  return p.r.reduce((v, r, i) => v + Math.PI * (r * r - p.ri[i] * p.ri[i]) * h, 0);
+};
+
 export const MAX_RPM = 4000;
 
 /** Rotação do fuso para o estado modal e o raio atual. */
@@ -179,8 +186,11 @@ export class Simulator {
       }
       if (res.parted >= 0) {
         const part = stock.separate(res.parted);
-        this.parts.push(part);
-        this.hooks.parted?.(part, line);
+        // pedacinho solto (ex.: o cone que sobra no centro ao facear com pastilha 35°) é cavaco
+        if (partVolume(part) >= MIN_PART_VOLUME) {
+          this.parts.push(part);
+          this.hooks.parted?.(part, line);
+        }
       }
     }
     return true;

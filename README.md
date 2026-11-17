@@ -124,7 +124,8 @@ Alarmes simulados: G0 dentro do material, ferramenta na peça com fuso parado,
 colisão com a placa, F ausente, arco inválido, ferramenta inexistente, erro de sintaxe.
 
 Avisos didáticos (não param o programa): avanço fora da faixa usual da ferramenta (ex.: `F0.02` no
-desbaste), broca andando em avanço fora do centro, e `CHF=`/`CHR=`/`RND=`/`ANG=` ainda não executados.
+desbaste), broca andando em avanço fora do centro, e `CHF=`/`CHR=`/`RND=` ainda não executados fora do
+contorno de ciclo. `ANG=` numa reta com um só eixo (ex.: `X78 ANG=225`) já é executado: o comando calcula o outro.
 
 Torre/magazine **configurável** (painel "Torre" no simulador, 16 posições): cada posição recebe uma
 ferramenta do catálogo ou fica vazia. O padrão (usado nos exemplos) é o **magazine do SinuTrain**:
@@ -151,7 +152,8 @@ para broca fora do centro e corpo da barra de mandrilar batendo no material.
 Exemplos em `programs/`: 01 básico, 02 eixo escalonado, 03 ponta esférica (Fanuc), 04 pino roscado M20,
 05 bucha (furação e mandrilamento), 06 peça completa, 07 eixo perfilado (gola côncava). Com ciclos:
 08 eixo com CYCLE95/93/97, 09 bucha com CYCLE95 interno e rosca interna, 10 flange com CYCLE95 de
-faceamento, 11 três tipos de canal (CYCLE93), 12 rebaixo no contorno e rosca de 2 entradas.
+faceamento, 11 três tipos de canal (CYCLE93), 12 rebaixo no contorno e rosca de 2 entradas, 13 eixo com
+cone de 25°, raios e chanfros (gabarito de avaliação revisado: CYCLE95 e chanfro de trás com `ANG=`).
 
 **Configuração salva com o programa:** a peça bruta, o material e as ferramentas da torre ficam
 salvos junto com cada programa (e com a entrega na turma). Cada exemplo traz a sua no cabeçalho

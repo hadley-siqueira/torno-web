@@ -330,6 +330,17 @@ export function parseProgram(text, options = {}) {
         val.T = byName ?? (Number.isFinite(num) ? num : NaN);
       } else val[w] = parseFloat(v);
     }
+    // ANG= numa reta isolada (G0/G1 com só X ou só Z): o comando calcula o outro eixo.
+    // Ângulo a partir do eixo +Z, sentido anti-horário (X para cima). Ex.: X78 ANG=225.
+    let ang = null;
+    if ('ANG' in val) {
+      const oneAxis = ('X' in val || 'U' in val) !== ('Z' in val || 'W' in val);
+      const mo = [...g].reverse().find((c) => [0, 1, 2, 3, 33].includes(c)) ?? st.motion;
+      if (oneAxis && (mo === 0 || mo === 1)) {
+        ang = val.ANG;
+        delete val.ANG;
+      }
+    }
     const ignoredContour = Object.keys(val).filter((w) => CONTOUR_WORDS.has(w));
     if (ignoredContour.length) {
       warn(li, 'W_CONTOUR_IGNORED', { k: ignoredContour.join(', ') });
@@ -465,6 +476,18 @@ export function parseProgram(text, options = {}) {
           if ('U' in val) r1 = st.r + val.U * k;
           if ('Z' in val) z1 = st.abs ? val.Z : st.z + val.Z;
           if ('W' in val) z1 = st.z + val.W;
+          if (ang !== null) {
+            const a = (ang * Math.PI) / 180;
+            const c = Math.cos(a);
+            const sn = Math.sin(a);
+            if ('Z' in val || 'W' in val) {
+              if (Math.abs(c) < 1e-6) throw new GCodeAlarm('E_LINE_ANG', { a: ang });
+              r1 = st.r + ((z1 - st.z) * sn) / c;
+            } else {
+              if (Math.abs(sn) < 1e-6) throw new GCodeAlarm('E_LINE_ANG', { a: ang });
+              z1 = st.z + ((r1 - st.r) * c) / sn;
+            }
+          }
 
           const mo = st.motion;
           if (mo === 1 || mo === 2 || mo === 3) checkCut(li, r1);

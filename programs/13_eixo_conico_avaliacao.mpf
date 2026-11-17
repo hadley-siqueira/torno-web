@@ -1,0 +1,62 @@
+; Eixo escalonado com cone de 25 graus, raios e chanfros 1x45 (gabarito de avaliacao, revisado)
+; Desenho: D35 x 30, D55 ate Z-55, cone de 25 graus ate D40, D40 ate Z-95, D60 ate Z-125, D80 ate Z-150
+; Raios: R4 entre D35/D55 e entre D60/D80, R2 nos cantos externos do D55 e do D60. Chanfros 1x45
+; Bruto: D82 x 210 mm, face em Z2
+; Material: steel
+; Torre: sinutrain
+; T3 (acabamento 35) faceia e faz o contorno: o cone desce para a placa e a pastilha 80 nao tem folga
+; T5 D2 (bedame, canto direito como referencia): alivio, chanfro de tras e corte da peca em Z-150
+N10 G18 G54 G71 G90 G96
+N20 G0 X200 Z200
+N30 T3 D1
+N40 S250 LIMS=2500 M4
+; ---- faceamento em 2 passes (X-1.6: passa um pouco do centro para nao deixar pino) ----
+N50 G0 X85 Z1
+N60 G1 X-1.6 F0.15
+N70 Z2
+N80 G0 X85
+N90 Z0
+N100 G1 X-1.6
+N110 Z2
+; ---- D80 no comprimento todo ----
+N120 G0 X80
+N130 G1 Z-150
+N140 X82
+N150 G0 X200 Z200
+; ---- alivio D78 atras da peca e chanfro 1x45 de tras (T5, canto direito) ----
+N160 T5 D2
+N170 X82 Z-150
+N180 G1 X78 F0.1
+N190 Z-170
+N200 X85
+N210 G0 Z-149
+N220 G1 X80
+N230 X78 ANG=225
+N240 X85
+N250 G0 X200 Z200
+; ---- contorno com CYCLE95 (desbaste e acabamento, VARI=9) ----
+N260 T3 D1
+N270 G0 X0 Z2
+N280 CYCLE95("INICIO:FIM",1.5,0.09,0.9,0,0.2,0.05,0.1,9,,0,2,0,2)
+N290 G0 X200 Z200
+; ---- corte da peca ----
+N300 T5 D2
+N310 X82 Z-150
+N320 G1 X0 F0.1
+N325 G0 X85
+N330 G0 X200 Z200
+N340 M2
+N350 INICIO:
+N360 G1 X0 Z0
+N370 X35 CHR=1
+N380 Z-30 RND=4
+N390 X55 RND=2
+N400 Z-55
+N410 X40 ANG=205
+N420 Z-95
+N430 X60 RND=2
+N440 Z-125 RND=4
+N450 X80 CHR=1
+N460 Z-150
+N470 FIM:
+N480 M2

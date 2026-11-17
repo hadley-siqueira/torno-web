@@ -453,7 +453,7 @@ programas reais do curso rodarem; depois os ciclos, a correção para o professo
    ignorados, torre da apostila + bedame D1/D2, bitolas em polegadas, avisos de avanço e broca fora do centro;
    tela da peça bruta com XA/XI/ZI/ZB/ZA.
 2. **Etapa 2 – segunda metade do curso** (próxima): chanfro/arredondamento (`CHF/CHR/RND/RNDM`) e
-   reta por ângulo (`ANG=`) → zero peça na face esquerda (`G58`, Z positivo) → **CYCLE95** com rótulos
+   reta por ângulo (`ANG=`; **feito 2026-11-17** para reta com um eixo) → zero peça na face esquerda (`G58`, Z positivo) → **CYCLE95** com rótulos
    `"INICIO:FIM"` → **CYCLE97** + hélice visível (pedido "Roscas") → G41/G42.
 3. **Etapa 3 – avaliação:** correção por blocos contra o gabarito (pergunta 20), exercícios da apostila
    como exemplos/testes (pedir autorização), exercícios com enunciado, tabela de cotas.

@@ -152,6 +152,23 @@ const DIMENSIONS = {
     // a 2ª entrada guarda a crista de antes da 1ª (senão a rosca some na imagem)
     assert.ok(p.threads.every((t) => t.before[Math.round((-10 - t.zLeft) / t.h)] > 11.9), 'crista Ø24 nas duas hélices');
   },
+  '13_eixo_conico_avaliacao.mpf': ({ parts }) => {
+    // no faceamento com a pastilha 35 um conezinho se solta no centro: é cavaco, não peça
+    assert.equal(parts.length, 1, 'só a peça cortada em Z-150');
+    const p = parts[0];
+    near(partLength(p), 150, 'comprimento', 0.2);
+    near(partDiameterAt(p, -0.6).d, 34.2, 'chanfro 1x45 na ponta', 0.1);
+    near(partDiameterAt(p, -15).d, 35, 'D35');
+    near(partDiameterAt(p, -29).d, 2 * (21.5 - Math.sqrt(16 - 9)), 'raio R4 entre D35 e D55 (centro em Z-26, R21,5)', 0.1);
+    near(partDiameterAt(p, -96).d, 2 * (28 + Math.sqrt(4 - 1)), 'raio R2 no canto do D60 (centro em Z-97, R28)', 0.15);
+    near(partDiameterAt(p, -125.5).d, 79, 'chanfro 1x45 no ressalto do D80', 0.15);
+    near(partDiameterAt(p, -40).d, 55, 'D55');
+    near(partDiameterAt(p, -60).d, 55 - 2 * 5 * Math.tan(Math.PI * 25 / 180), 'cone de 25 graus');
+    near(partDiameterAt(p, -80).d, 40, 'D40');
+    near(partDiameterAt(p, -110).d, 60, 'D60');
+    near(partDiameterAt(p, -140).d, 80, 'D80');
+    near(partDiameterAt(p, -149.5).d, 79, 'chanfro 1x45 de trás (X78 ANG=225)', 0.15);
+  },
 };
 
 for (const [name, check] of Object.entries(DIMENSIONS)) {

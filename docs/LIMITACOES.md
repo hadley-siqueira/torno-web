@@ -18,7 +18,7 @@ O planejamento geral está em [PLANO.md](PLANO.md).
 | **G41/G42 ignorados** (sem compensação de raio da ponta) | Cones e raios saem com o perfil da ponta viva, sem o erro típico de quem esquece o G42 | Modelar raio de ponta na ferramenta e deslocar a trajetória (offset de contorno) |
 | **G54–G57 sem deslocamento real** | O zero da peça é sempre a face; esquecer o G54 não causa erro | Coordenadas de máquina + tabela de origens; ver Etapa 0 do PLANO |
 | **Sem corretores de ferramenta** (`D` só escolhe o corte do bedame: D1 esquerdo, D2 direito) | Não dá para treinar preset nem correção de desgaste | Tabela de ferramentas com geometria/desgaste X/Z por posição |
-| **Chanfro/arredondamento e contorno** (`CHF=`, `CHR=`, `RND=`, `RNDM=`, `ANG=`) não executados | O bloco roda sem o chanfro/raio, **com aviso** | Inserir o elemento entre dois movimentos (PLANO, Etapa 1) |
+| **Chanfro/arredondamento** (`CHF=`, `CHR=`, `RND=`, `RNDM=`) fora do contorno de ciclo não executados; `ANG=` só numa reta com um eixo (X ou Z) | O bloco roda sem o chanfro/raio, **com aviso** | Inserir o elemento entre dois movimentos (PLANO, Etapa 1) |
 | **Zero peça só na face direita** (`G58`/Z positivo dos exercícios 19–22 da apostila não funciona) | Programas com zero na face esquerda não batem com a peça | PLANO, Etapa 1 |
 | **Rosca G33 só reta** (sem cônica, sem múltiplas entradas, sem `SF=`) | Roscas simples funcionam; as demais não | Acrescentar parâmetros conforme o 802D sl |
 | **Fanuc só o básico** (G0–G3, U/W, T0101, G28, G50 S, G96/G97, G98/G99) | Programas Fanuc com ciclos não rodam | Decisão do projeto: Fanuc é secundário (PLANO, decisão 4) |

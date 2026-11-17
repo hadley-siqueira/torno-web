@@ -65,9 +65,20 @@ test('programa real do aluno roda: WORKPIECE define a peça e avança-se com avi
 });
 
 test('chanfro/arredondamento/ângulo ignorados geram aviso (não somem calados)', () => {
-  const p = parseProgram('G18 G90 G95\nT1 D1\nG97 S800 M4\nG0 X20 Z2\nG1 Z0 F0.2\nX15 CHR=1.0\nZ-20 RND=1\nZ-28.6 ANG=200\nM2');
+  const p = parseProgram('G18 G90 G95\nT1 D1\nG97 S800 M4\nG0 X20 Z2\nG1 Z0 F0.2\nX15 CHR=1.0\nZ-20 RND=1\nX18 Z-28.6 ANG=200\nM2');
   assert.deepEqual(codes(p), ['W_CONTOUR_IGNORED', 'W_CONTOUR_IGNORED', 'W_CONTOUR_IGNORED']);
   assert.deepEqual(p.warnings.map((w) => w.params.k), ['CHR', 'RND', 'ANG']);
+});
+
+test('ANG= numa reta com um só eixo: o comando calcula o outro', () => {
+  // chanfro de trás 1x45: de (Z-149, Ø80) até Ø78 a 225° termina em Z-150
+  const p = parseProgram('G18 G90 G95\nT1 D1\nG97 S800 M4\nG0 X80 Z-149\nG1 X78 ANG=225 F0.1\nZ-160 ANG=180\nG0 X90\nZ-150 ANG=200\nM2');
+  assert.deepEqual(codes(p), []);
+  const ends = p.events.filter((e) => (e.type === 'feed' || e.type === 'rapid') && e.line >= 4).map((e) => e.pts.at(-1).slice(0, 2).map((v) => Number(v.toFixed(3))));
+  assert.deepEqual(ends[0], [-150, 39], 'X78 ANG=225');
+  assert.deepEqual(ends[1], [-160, 39], 'Z-160 ANG=180 (reta em Z)');
+  assert.deepEqual(ends[3], [-150, 45 + 10 * Math.tan(Math.PI / 9)].map((v) => Number(v.toFixed(3))), 'Z com ANG: calcula o raio');
+  assert.equal(parseProgram('G18 G90 G95\nT1 D1\nG97 S800 M4\nG0 X80 Z0\nG1 X70 ANG=180 F0.1\nM2').alarm.code, 'E_LINE_ANG');
 });
 
 test('avisos didáticos: avanço alto e broca fora do centro', () => {
