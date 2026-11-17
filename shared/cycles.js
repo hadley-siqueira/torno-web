@@ -5,9 +5,9 @@
 // Cada ciclo vira uma lista de movimentos simples (rápido, avanço, rosca, espera) que o
 // interpretador (gcode.js) transforma em eventos, como se fossem blocos G0/G1/G33/G4.
 //
-// Fontes: exemplos públicos de programas do 802D sl/840D e a lista de parâmetros dos
-// manuais da Siemens. O que não estava claro nas fontes está marcado como SUPOSIÇÃO
-// (também em docs/PLANO.md > Suposições).
+// Fontes: manual "SINUMERIK 802D sl Operation and Programming Turning" (10/2006, cap. 9.5) e
+// "SINUMERIK 840D sl Cycles" (04/2006, cap. 4), mais exemplos públicos. O que os manuais não
+// dizem em texto está marcado como SUPOSIÇÃO (também em docs/PLANO.md > Suposições).
 //
 // Coordenadas: pontos [z, r] (r = raio). Os geradores trabalham num sistema (u, v) em
 // que o corte anda em −u e o material fica "acima" do contorno (v maior); o mapeamento
@@ -150,7 +150,8 @@ export function parseContour(lines, from, to, { diam = true } = {}) {
     }
     if (ends) break;
   }
-  if (elems.length < 1) throw new GCodeAlarm('E_CONTOUR_EMPTY');
+  // manual: o contorno precisa de pelo menos 3 blocos com movimento (início + 2 elementos)
+  if (elems.length < 2) throw new GCodeAlarm('E_CONTOUR_EMPTY');
 
   const pts = [elems[0].pts[0]];
   elems.forEach((e, i) => {
@@ -422,9 +423,10 @@ export function cycle95(args, ctx) {
   if (stage !== 'rough') {
     let path = uv;
     if (path[0][0] < path[path.length - 1][0]) path = [...path].reverse(); // do lado aberto para dentro
+    // manual: ponto inicial do ciclo eixo a eixo, depois o início do contorno com os dois eixos
     if (mv.pos[1] < vSafe) mv.rapid([mv.pos[0], vSafe]);
-    mv.rapid([uStart, vSafe], [uStart, path[0][1]]);
-    mv.feed(FF3, ...path);
+    mv.rapid([uStart, vSafe], path[0]);
+    mv.feed(FF3, ...path.slice(1));
     mv.rapid([mv.pos[0], mv.pos[1] + VRT]);
   }
   if (mv.pos[1] < vSafe) mv.rapid([mv.pos[0], vSafe]);
@@ -443,9 +445,9 @@ const P93 = ['SPD', 'SPL', 'WIDG', 'DIAG', 'STA1', 'ANG1', 'ANG2', 'RCO1', 'RCO2
  * flancos; RCO = cantos de cima, RCI = cantos do fundo (positivo = raio, negativo = chanfro);
  * FAL1/FAL2 = sobremetal no fundo e nos flancos; IDEP = profundidade de cada mergulho;
  * DTB = espera no fundo (s).
- * VARI (SUPOSIÇÃO, a confirmar): 1 longitudinal externo, ponto inicial à esquerda;
- * 3 longitudinal interno, esquerda; 5 longitudinal externo, direita; 7 longitudinal
- * interno, direita; 2/4/6/8 = canal na face (não suportado). 11–18: chanfros como CHR.
+ * VARI (manual do 840D): 1 longitudinal externo, ponto inicial à esquerda; 3 interno,
+ * esquerda; 5 externo, direita; 7 interno, direita; 2/4/6/8 = canal na face (não
+ * suportado). 1–8: chanfro como CHF; 11–18: como CHR.
  *
  * Sequência: mergulhos de IDEP com recuo de _VRT (quebra-cavaco) até o fundo, lado a lado
  * (passo ≤ 95% da largura da ferramenta); depois acabamento de cada flanco até o meio do
@@ -594,7 +596,8 @@ export const METRIC_COARSE = {
 /**
  * CYCLE97(PIT, MPIT, SPL, FPL, DM1, DM2, APP, ROP, TDEP, FAL, IANG, NSP, NRC, NID, VARI, NUMT, _VRT)
  * PIT = passo (ou MPIT = tamanho da rosca métrica grossa, M3–M60); SPL/FPL = Z do início e
- * do fim da rosca; DM1/DM2 = Ø no início e no fim (diferentes = rosca cônica); APP/ROP =
+ * do fim da rosca; DM1/DM2 = Ø no início e no fim (diferentes = rosca cônica; na rosca
+ * interna é o Ø do furo, como diz o manual); APP/ROP =
  * percurso de entrada e de saída; TDEP = profundidade do filete (raio); FAL = sobremetal do
  * último passe; IANG = ângulo de penetração (+ por um flanco, − alternado); NSP = ângulo
  * de início; NRC = passes de desbaste; NID = passes em vazio; VARI 1 externo / 2 interno
@@ -633,10 +636,10 @@ export function cycle97(args, ctx) {
   const dir = p.FPL < p.SPL ? -1 : 1;
   const zs = p.SPL - dir * (p.APP || 0);
   const ze = p.FPL + dir * (p.ROP || 0);
-  // v = s·r; crista (topo do filete): externo = Ø nominal; interno = Ø nominal − 2·TDEP
+  // v = s·r; DM1/DM2 = Ø da crista: externo = Ø nominal; interno = Ø do furo (manual 802D sl)
   const s = internal ? -1 : 1;
   const rNom = (z) => r1 + ((r2 - r1) * (z - p.SPL)) / (p.FPL - p.SPL);
-  const vCrest = (z) => s * (internal ? rNom(z) - TDEP : rNom(z));
+  const vCrest = (z) => s * rNom(z);
   const vRet = Math.max(vCrest(zs), vCrest(ze)) + VRT;
 
   const depths = [];

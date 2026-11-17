@@ -260,7 +260,7 @@ N170 M2`);
 
 test('CYCLE95 com contorno salvo em outro programa (CONT1.SPF)', async ({ page }) => {
   page.on('dialog', (d) => d.accept(d.type() === 'prompt' ? 'CONT1.SPF' : undefined));
-  await setCode(page, 'G1 X20 Z0\nZ-10\nX30\nZ-20\nX52\nM17\n');
+  await setCode(page, 'G1 X20 Z2\nZ-10\nX30\nZ-20\nX52\nM17\n');
   await page.click('#btnSaveAs');
   await expect(page.locator('#messages')).toContainText('Salvo como CONT1.SPF');
   await page.click('#btnReset');

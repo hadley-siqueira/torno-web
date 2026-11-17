@@ -10,7 +10,7 @@ import { TOOL_TYPES } from '../../shared/tools.js';
 const near = (a, b, msg, eps = 0.06) => assert.ok(Math.abs(a - b) <= eps, `${msg}: esperado ${b}, obtido ${a.toFixed(3)}`);
 const HEAD = 'G18 G90 G95 DIAMON\nT1 D1\nG96 S180 LIMS=2500 M4\nG0 X54 Z3\n';
 // contorno simples: Ø20 até Z-10, Ø30 até Z-20, cone até Ø40 em Z-30, sobe a Ø52
-const CONT = 'C1:\nG1 X20 Z0\nZ-10\nX30\nZ-20\nX40 Z-30\nX52\nC2:\n';
+const CONT = 'C1:\nG1 X20 Z2\nZ-10\nX30\nZ-20\nX40 Z-30\nX52\nC2:\n';
 const run = (body, opts) => runProgram(HEAD + body + '\nG0 X150 Z100\nM30\n' + CONT, opts);
 
 test('argumentos de ciclo: posições vazias, textos e números', () => {
@@ -29,8 +29,9 @@ test('contorno: CHR, CHF, RND, ANG e arco', () => {
   const rnd = pts('G1 X20 Z0\nZ-10 RND=2\nX30');
   const mid = rnd.find(([z]) => z < -8 && z > -10);
   assert.ok(Math.abs(Math.hypot(mid[0] + 8, mid[1] - 12) - 2) < 1e-6, 'arredondamento tangente com centro em (Z-8, R12)');
-  const ang = pts('G1 X20 Z0\nZ-10 ANG=135');
-  near(ang.at(-1)[1], 20, 'ANG=135 sobe 10 mm de raio em 10 mm de Z');
+  const ang = pts('G1 X20 Z0\nZ-10 ANG=135\nX52');
+  near(ang.at(-2)[1], 20, 'ANG=135 sobe 10 mm de raio em 10 mm de Z');
+  assert.throws(() => pts('G1 X20 Z0\nZ-10'), /E_CONTOUR_EMPTY/, 'menos de 3 blocos');
   assert.throws(() => pts('G1 X20 Z0\nZ-10 CHR=20\nX30'), /E_CORNER_TOO_BIG/);
   assert.throws(() => pts('G1 X20\nZ-10'), /E_CONTOUR_START/);
 });
@@ -142,6 +143,14 @@ test('CYCLE97: passes de rosca, núcleo e hélice; MPIT pela tabela', () => {
   assert.equal(m.alarm, null);
   assert.equal(m.events.find((e) => e.type === 'thread').thread.lead, 4.5);
   assert.equal(parseProgram(T + 'CYCLE97(2, , 0, -20, 50, 50, 4, 2, , , 30, 0, 5, 2, 1, 1, 1)\nM30').alarm.code, 'E_CYCLE_PARAM');
+  // interna (VARI 2): DM = Ø do furo; M20x1,5 em furo Ø18,38 com TDEP 0,81 → Ø20
+  const I = 'G18 G90 G95 DIAMON\nT16 D1\nG97 S500 M3\nG0 X16 Z6\n';
+  const ri = runProgram(I + 'CYCLE97(1.5, , 0, -15, 18.38, 18.38, 4, 1, 0.81, 0.05, 30, 0, 5, 1, 2, 1, 0.5)\nG0 Z50\nG0 X150 Z100\nM30',
+    { stock: { diameter: 40, length: 80, faceZ: 0, bore: 18.38 } });
+  assert.deepEqual(ri.alarms, []);
+  near(ri.stock.boreAt(-8), 20, 'Ø maior da rosca interna');
+  near(ri.stock.boreAt(-25), 18.38, 'furo depois da rosca');
+  assert.equal(ri.stock.threads[0].kind, 'int');
 });
 
 test('rosca por G33: a peça guarda a hélice; a peça separada leva junto', () => {
