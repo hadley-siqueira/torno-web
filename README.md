@@ -149,7 +149,15 @@ Usinagem externa, furação (só em X0) e usinagem interna removem material; ala
 para broca fora do centro e corpo da barra de mandrilar batendo no material.
 
 Exemplos em `programs/`: 01 básico, 02 eixo escalonado, 03 ponta esférica (Fanuc), 04 pino roscado M20,
-05 bucha (furação e mandrilamento), 06 peça completa (usa as 8 ferramentas), 07 eixo perfilado (gola côncava).
+05 bucha (furação e mandrilamento), 06 peça completa, 07 eixo perfilado (gola côncava). Com ciclos:
+08 eixo com CYCLE95/93/97, 09 bucha com CYCLE95 interno e rosca interna, 10 flange com CYCLE95 de
+faceamento, 11 três tipos de canal (CYCLE93), 12 rebaixo no contorno e rosca de 2 entradas.
+
+**Configuração salva com o programa:** a peça bruta, o material e as ferramentas da torre ficam
+salvos junto com cada programa (e com a entrega na turma). Cada exemplo traz a sua no cabeçalho
+(`; Bruto: D50 x 80 mm, face em Z1`, `; Material: aluminum`, `; Torre: sinutrain|apostila|torre8`),
+então abrir um exemplo sempre arruma a torre que o código espera. Mudar a torre ou o bruto marca o
+programa como modificado. A peça bruta e a torre ficam em janelas abertas pelos botões do painel.
 
 ### Desempenho e placa de vídeo
 

@@ -569,10 +569,18 @@ export function cycle93(args, ctx) {
   const ev = exact.v;
   const wL = U(eL - 1);
   const wR = U(eR + 1);
+  // O fundo da ferramenta é reto: em cada posição ela só desce até o ponto mais alto do
+  // perfil que fica embaixo dela (senão comeria o flanco ou o raio do outro lado).
+  const kw = Math.round(w / DU);
+  const under = (from, to) => {
+    let m = -Infinity;
+    for (let j = Math.max(eL, from); j <= Math.min(eR, to); j++) m = Math.max(m, ev[j]);
+    return m;
+  };
   const left = [];
-  for (let i = eL - 1; i <= mid && U(i) + w <= wR + 1e-9; i++) left.push([U(i) - ta, Math.min(ev[i], ev[i + 1])]);
+  for (let i = eL - 1; i <= mid && U(i) + w <= wR + 1e-9; i++) left.push([U(i) - ta, Math.max(Math.min(ev[i], ev[i + 1]), under(i + 1, i + kw))]);
   const right = [];
-  for (let i = eR + 1; i >= mid && U(i) - w >= wL - 1e-9; i--) right.push([U(i) - tb, Math.min(ev[i], ev[i - 1])]);
+  for (let i = eR + 1; i >= mid && U(i) - w >= wL - 1e-9; i--) right.push([U(i) - tb, Math.max(Math.min(ev[i], ev[i - 1]), under(i - kw, i - 1))]);
   for (const side of dir > 0 ? [left, right] : [right, left]) {
     if (!side.length) continue;
     goTo(side[0][0]);

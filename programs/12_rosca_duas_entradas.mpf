@@ -1,0 +1,70 @@
+; Eixo com rebaixo de saida no contorno e rosca de 2 entradas (passo 2, avanco 4)
+; CYCLE95 com rebaixo (pastilha 35 graus) e CYCLE97 com NUMT=2
+; Bruto: D40 x 80 mm, face em Z1
+; Material: stainless
+; Torre: sinutrain
+; T1 desbaste, T3 acabamento 35 (entra no rebaixo), T8 rosca, T5 bedame
+G18 G90 G95 DIAMON
+
+; ========== FACEAMENTO (T1) ==========
+T1 D1
+G96 S150 LIMS=2500 M4
+G0 X44 Z0
+G1 X-1.6 F0.18
+G0 X44 Z3
+
+; ========== DESBASTE SEM O REBAIXO (T1, VARI=1) ==========
+; a pastilha 80 nao desce no rebaixo: o contorno DESBASTE passa reto por cima dele
+CYCLE95("DESBASTE:DESBASTE_FIM", 2, 0.1, 0.2, , 0.22, 0.15, 0.1, 1, , , 1)
+G0 X150 Z100
+
+; ========== REBAIXO E ACABAMENTO (T3, VARI=9) ==========
+; a pastilha 35 (VNMG) tem folga para descer no rebaixo de 45 graus
+T3 D1
+G96 S180 LIMS=3000 M4
+G0 X44 Z3
+CYCLE95("PERFIL:PERFIL_FIM", 1, 0.05, 0.1, , 0.15, 0.1, 0.08, 9, , , 1)
+G0 X150 Z100
+
+; ========== ROSCA DE 2 ENTRADAS M24 x 2 (T8) ==========
+; PIT = avanco por volta (4 = 2 entradas x passo 2); NUMT=2: a 2a entrada comeca a 180 graus
+; VARI=3: secao de cavaco constante; IANG=-29: penetracao alternada nos flancos
+T8 D1
+G97 S300 M4
+G0 X28 Z8
+CYCLE97(4, , 0, -19, 24, 24, 6, 2, 1.23, 0.05, -29, 0, 6, 1, 3, 2, 1)
+G0 X150 Z100
+
+; ========== CORTE COM 60 mm (T5) ==========
+T5 D1
+G97 S700 M4
+G0 X44 Z-63
+G1 X-1 F0.06
+G0 X44
+G0 X150 Z100
+M30
+
+; ---------- contornos (lidos pelos ciclos) ----------
+DESBASTE:
+G1 X22 Z1
+X24 Z-1
+Z-28                ; passa reto por cima do rebaixo ate encontrar o cone
+X30 Z-31
+Z-45 RND=3
+X36
+Z-62
+X42
+DESBASTE_FIM:
+
+PERFIL:
+G1 X22 Z1
+X24 Z-1
+Z-20
+X20 Z-22
+Z-26
+X30 Z-31
+Z-45 RND=3
+X36
+Z-62
+X42
+PERFIL_FIM:

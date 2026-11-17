@@ -96,6 +96,22 @@ test('programas são privados', async () => {
   assert.equal((await bia('DELETE', `/api/programs/${id}`)).status, 200);
 });
 
+test('programa guarda a configuração (peça bruta, material e torre)', async () => {
+  const c = await signup('setupuser');
+  const setup = { stock: { diameter: 40, length: 70, faceZ: 1, clamp: 30 }, material: 'brass', turret: { 1: 'ext_rough_80', 2: '', 3: 'xxx' } };
+  const p = (await c('POST', '/api/programs', { name: 'COM_SETUP', code: 'M30', setup })).body;
+  assert.deepEqual(p.setup.stock, setup.stock);
+  assert.equal(p.setup.material, 'brass');
+  assert.equal(p.setup.turret[2], '');
+  assert.equal(p.setup.turret[3], 'ext_finish_35', 'tipo desconhecido volta ao padrão');
+  // PUT só com o código mantém a configuração; com setup troca
+  assert.equal((await c('PUT', `/api/programs/${p.id}`, { code: 'G0 X1\nM30' })).body.setup.material, 'brass');
+  const p2 = (await c('PUT', `/api/programs/${p.id}`, { setup: { material: 'copper', stock: { diameter: -1 } } })).body;
+  assert.deepEqual(p2.setup, { material: 'copper' }, 'só as partes válidas');
+  // programa sem configuração (antigo)
+  assert.equal((await c('POST', '/api/programs', { name: 'SEM', code: 'M30' })).body.setup, null);
+});
+
 test('CSRF: alterações exigem JSON e mesma origem', async () => {
   const c = await signup('dani');
   assert.equal((await c('POST', '/api/programs', undefined, { 'Content-Type': 'application/x-www-form-urlencoded' })).status, 415);
@@ -153,15 +169,19 @@ test('turmas: convite, entrega e privacidade', async () => {
   await aluno('PUT', `/api/programs/${p1.id}`, { code: 'ALTERADO' });
   const det = (await prof('GET', `/api/turmas/${t.id}`)).body;
   assert.equal(det.members.length, 1);
-  assert.deepEqual(det.submissions.map((s) => s.name), ['P1']);
+  assert.deepEqual(det.submissions.map((x) => x.name), ['P1']);
   assert.equal((await prof('GET', `/api/turmas/${t.id}/submissions/${sub.body.id}`)).body.code, 'G0 X1\nM30');
+  // a entrega leva a configuração do programa
+  await aluno('PUT', `/api/programs/${p1.id}`, { code: 'G0 X1\nM30', setup: { material: 'aluminum' } });
+  const sub2 = (await aluno('POST', `/api/turmas/${t.id}/submissions`, { programId: p1.id })).body;
+  assert.deepEqual((await prof('GET', `/api/turmas/${t.id}/submissions/${sub2.id}`)).body.setup, { material: 'aluminum' });
   assert.equal((await prof('GET', `/api/programs/${p1.id}`)).status, 404, 'professor não lê programas não entregues');
 
   // aluno vê só as próprias entregas e não vê o código de convite nem a lista de alunos
   const view = (await aluno('GET', `/api/turmas/${t.id}`)).body;
   assert.equal(view.invite_code, undefined);
   assert.equal(view.members, undefined);
-  assert.equal(view.submissions.length, 1);
+  assert.equal(view.submissions.length, 2);
 
   // não-membro não entrega; programa de outro usuário não pode ser entregue
   assert.equal((await outro('POST', `/api/turmas/${t.id}/submissions`, { programId: p1.id })).status, 404);
@@ -262,7 +282,7 @@ test('migração preserva usuários do esquema antigo', async () => {
     PRAGMA user_version = 1;`);
   old.close();
   const db = openDb(file);
-  assert.equal(db.prepare('PRAGMA user_version').get().user_version, 2);
+  assert.equal(db.prepare('PRAGMA user_version').get().user_version, 3, 'todas as migrações');
   const u = db.prepare('SELECT * FROM users').get();
   assert.equal(u.username, 'velho');
   assert.equal('role' in u, false);

@@ -87,14 +87,18 @@ test('idioma inglês fica salvo na conta', async ({ page }) => {
 });
 
 test('torre configurável: posição vazia dá alarme e restaurar volta ao padrão', async ({ page }) => {
-  await page.locator('summary', { hasText: 'Torre' }).click();
+  await page.click('#btnTurretDlg');
   await page.locator('#toolList label').nth(4).locator('select').selectOption('');
   await expect(page.locator('#messages')).toContainText('Torre alterada: T5 = — vazia —');
+  await page.click('#turretClose');
+  await expect(page.locator('#turretSummary')).toHaveText('Montagem própria (15 ferramentas)');
   await setCode(page, 'T5 D1\nM30');
   await runToEnd(page);
   await expect(page.locator('#alarm')).toContainText('Posição T5 da torre está vazia');
   await page.click('#btnReset');
+  await page.click('#btnTurretDlg');
   await page.getByRole('button', { name: 'Magazine do SinuTrain (padrão)' }).click();
+  await page.click('#turretClose');
   await runToEnd(page);
   await expect(status(page)).toHaveText('FIM');
 });
@@ -103,11 +107,14 @@ test('material do tarugo e posição da torre ficam salvos na conta', async ({ p
   const saved = page.waitForResponse(
     (r) => r.url().endsWith('/api/settings') && r.request().method() === 'PUT' && r.request().postData().includes('"turretSide":"top"')
   );
-  await page.locator('summary', { hasText: 'Peça bruta' }).click();
+  await page.click('#btnStockDlg');
   await page.selectOption('#stockMaterial', 'copper');
-  await page.locator('summary', { hasText: 'Torre' }).click();
+  await page.click('#stockClose');
+  await expect(page.locator('#stockSummary')).toContainText('Cobre');
+  await page.click('#btnTurretDlg');
   await expect(page.locator('#turretSide')).toHaveValue('rear');
   await page.selectOption('#turretSide', 'top');
+  await page.click('#turretClose');
   await saved;
   await page.reload();
   await expect(page.locator('#stockMaterial')).toHaveValue('copper');
@@ -130,7 +137,7 @@ test('peça bruta lida do cabeçalho do programa', async ({ page }) => {
 });
 
 test('peça bruta: tubo e comprimento de trabalho (ZB)', async ({ page }) => {
-  await page.locator('details.settings summary').first().click();
+  await page.click('#btnStockDlg');
   await page.fill('#stockD', '50');
   await page.fill('#stockDi', '20');
   await page.fill('#stockT', '90');
@@ -141,11 +148,13 @@ test('peça bruta: tubo e comprimento de trabalho (ZB)', async ({ page }) => {
   await setCode(page, 'G18 G90 G95 DIAMON\nT7 D1\nG97 S800 M3\nG0 X22 Z2\nG1 Z-20 F0.1\nG0 Z5\nG0 X150 Z100\nM30');
   await runToEnd(page);
   await expect(status(page)).toHaveText('FIM');
-  // inválido: Ø interno maior que o externo
+  // inválido: Ø interno maior que o externo (a janela continua aberta para corrigir)
+  await page.click('#btnStockDlg');
   await page.fill('#stockDi', '60');
   await expect(page.locator('#stockInfo')).toContainText('Ø interno precisa ser menor');
   await page.click('#btnApplyStock');
   await expect(page.locator('#messages')).toContainText('Peça bruta inválida');
+  await expect(page.locator('#dlgStock')).toBeVisible();
 });
 
 test('réguas na vista Lateral: lê Z e diâmetros e mede comprimento', async ({ page }) => {
@@ -226,9 +235,10 @@ test('etiqueta mostra quem desenha o 3D (placa de vídeo ou software)', async ({
 
 test('programa do SinuTrain com WORKPIECE e torre da apostila', async ({ page }) => {
   // montagem da apostila: T2 = bedame
-  await page.locator('details.settings summary').nth(1).click();
+  await page.click('#btnTurretDlg');
   await page.getByRole('button', { name: 'Montagem da apostila' }).click();
   await expect(page.locator('#toolList select').nth(1)).toHaveValue('groove_3');
+  await page.click('#turretClose');
   await setCode(page, `N10 WORKPIECE(,,,"CYLINDER",0,2,120,100,82.55)
 N20 G18 G54 G71 G90 G96
 N30 G0 X200 Z200
@@ -267,4 +277,40 @@ test('CYCLE95 com contorno salvo em outro programa (CONT1.SPF)', async ({ page }
   await setCode(page, 'G18 G90 G95 DIAMON\nT1 D1\nG96 S180 LIMS=2500 M4\nG0 X54 Z3\nCYCLE95("CONT1", 2, 0.1, 0.2, , 0.25, 0.15, 0.1, 9, , , 1)\nG0 X150 Z100\nM30\n');
   await runToEnd(page);
   await expect(status(page)).toHaveText('FIM');
+});
+
+test('cada exemplo traz a própria torre e peça bruta; o programa salvo guarda a configuração', async ({ page }) => {
+  page.on('dialog', (d) => d.accept(d.type() === 'prompt' ? 'COM_TORRE.MPF' : undefined));
+  // mexe na torre e no bruto; abrir um exemplo volta ao que ele espera
+  await page.click('#btnTurretDlg');
+  await page.getByRole('button', { name: 'Montagem da apostila' }).click();
+  await page.click('#turretClose');
+  await expect(page.locator('#turretSummary')).toHaveText('Montagem da apostila');
+  await expect(page.locator('#progName')).toContainText('modificado');
+  await page.selectOption('#programSelect', 'ex:04_pino_roscado.mpf');
+  await page.click('#btnOpen'); // pergunta se descarta: o diálogo aceita
+  await expect(page.locator('#turretSummary')).toHaveText('Magazine do SinuTrain (padrão)');
+  await expect(page.locator('#progName')).not.toContainText('modificado');
+  await runToEnd(page);
+  await expect(status(page)).toHaveText('FIM');
+
+  // salva um programa com a torre da apostila e latão; reabre depois de trocar tudo
+  await page.click('#btnNew');
+  await page.click('#btnTurretDlg');
+  await page.getByRole('button', { name: 'Montagem da apostila' }).click();
+  await page.click('#turretClose');
+  await page.click('#btnStockDlg');
+  await page.selectOption('#stockMaterial', 'brass');
+  await page.fill('#stockD', '40');
+  await page.click('#btnApplyStock');
+  await page.click('#btnSaveAs');
+  await expect(page.locator('#messages')).toContainText('Salvo como COM_TORRE.MPF');
+  await page.selectOption('#programSelect', 'ex:01_basico.mpf');
+  await page.click('#btnOpen');
+  await expect(page.locator('#turretSummary')).toHaveText('Magazine do SinuTrain (padrão)');
+  await page.selectOption('#programSelect', { label: 'COM_TORRE.MPF' });
+  await page.click('#btnOpen');
+  await expect(page.locator('#turretSummary')).toHaveText('Montagem da apostila');
+  await expect(page.locator('#stockSummary')).toContainText('Ø40');
+  await expect(page.locator('#stockSummary')).toContainText('Latão');
 });

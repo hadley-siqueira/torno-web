@@ -64,6 +64,9 @@ const MIGRATIONS = [
      submitted_at TEXT NOT NULL DEFAULT (datetime('now'))
    );
    CREATE INDEX submissions_turma ON submissions(turma_id, user_id);`,
+  // 3: configuração do programa (peça bruta, material, torre) salva junto com o código
+  `ALTER TABLE programs ADD COLUMN setup TEXT;
+   ALTER TABLE submissions ADD COLUMN setup TEXT;`,
 ];
 
 export function openDb(file = process.env.DB_PATH || path.join(process.cwd(), 'data', 'cnc.db')) {

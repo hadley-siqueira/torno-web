@@ -106,6 +106,52 @@ const DIMENSIONS = {
     assert.equal(p.threads.length, 1, 'a peça leva a rosca (hélice na malha 3D)');
     assert.equal(stock.threads.length, 1);
   },
+  '09_bucha_ciclos.mpf': ({ parts }) => {
+    const p = parts[0];
+    near(partLength(p), 40, 'comprimento', 0.15);
+    near(partDiameterAt(p, -0.5).d, 43, 'chanfro externo');
+    near(partDiameterAt(p, -20).d, 44, 'D44 (CYCLE95 externo)');
+    near(partDiameterAt(p, -5).bore, 30, 'rosca interna M30x1,5: Ø maior (CYCLE97 VARI 2)');
+    near(partDiameterAt(p, -11.5).bore, 28.38, 'furo da rosca depois da saída');
+    near(partDiameterAt(p, -25).bore, 24, 'furo D24 (CYCLE95 interno)');
+    assert.equal(p.threads.length, 1);
+    assert.equal(p.threads[0].kind, 'int');
+  },
+  '10_flange_faceamento.mpf': ({ parts }) => {
+    const p = parts[0];
+    near(partLength(p), 30, 'comprimento', 0.15);
+    near(partDiameterAt(p, -0.5).d, 39, 'chanfro do cubo');
+    near(partDiameterAt(p, -5).d, 40, 'cubo D40 (CYCLE95 de faceamento)');
+    near(partDiameterAt(p, -11).d, 42, 'chanfro na base do cubo');
+    near(partDiameterAt(p, -14).d, 80, 'flange D80 a partir de Z-12');
+    near(partDiameterAt(p, -20).d, 76, 'canal 4 x 2 (CYCLE93)');
+    near(partDiameterAt(p, -28).d, 80, 'flange depois do canal');
+  },
+  '11_canais.mpf': ({ parts }) => {
+    const p = parts[0];
+    near(partLength(p), 55, 'comprimento', 0.15);
+    near(partDiameterAt(p, -5).d, 38, 'D38');
+    near(partDiameterAt(p, -12).d, 33, 'canal de anel: fundo D33');
+    near(partDiameterAt(p, -10.1).d, 2 * (16.5 + 0.4 - Math.sqrt(0.16 - 0.09)), 'raio 0,4 no fundo', 0.1);
+    near(partDiameterAt(p, -9.95).d, 37.5, 'chanfro CHR 0,3 na borda', 0.1);
+    near(partDiameterAt(p, -28).d, 32, 'canal em V: fundo D32');
+    near(partDiameterAt(p, -26).d, 2 * (19 - 1 / Math.tan(Math.PI / 6)), 'flanco de 30°', 0.12);
+    near(partDiameterAt(p, -43).d, 34, 'canal largo D34');
+    near(partDiameterAt(p, -50).d, 38, 'D38 depois do canal largo');
+  },
+  '12_rosca_duas_entradas.mpf': ({ parts }) => {
+    const p = parts[0];
+    near(partLength(p), 60, 'comprimento', 0.15);
+    near(partDiameterAt(p, -10).d, 24 - 2 * 1.23, 'núcleo da rosca M24x2');
+    near(partDiameterAt(p, -24).d, 20, 'rebaixo D20 (CYCLE95 com rebaixo, T3)');
+    near(partDiameterAt(p, -28.5).d, 25, 'cone do rebaixo');
+    near(partDiameterAt(p, -38).d, 30, 'D30');
+    near(partDiameterAt(p, -44).d, 2 * (18 - Math.sqrt(5)), 'raio R3 (RND=3)');
+    near(partDiameterAt(p, -52).d, 36, 'D36');
+    assert.equal(p.threads.length, 2, 'duas entradas = duas hélices');
+    // a 2ª entrada guarda a crista de antes da 1ª (senão a rosca some na imagem)
+    assert.ok(p.threads.every((t) => t.before[Math.round((-10 - t.zLeft) / t.h)] > 11.9), 'crista Ø24 nas duas hélices');
+  },
 };
 
 for (const [name, check] of Object.entries(DIMENSIONS)) {

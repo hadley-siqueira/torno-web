@@ -58,44 +58,14 @@
         </div>
       </div>
 
-      <details class="settings">
-        <summary data-i18n="stock"></summary>
-        <div class="grid">
-          <label><span data-i18n="stock_d"></span><input id="stockD" type="number" min="5" max="200" step="any" value="50" list="inchBars" data-i18n-title="stock_inch_hint" /></label>
-          <datalist id="inchBars">
-            <option value="25.4">1"</option>
-            <option value="31.75">1 1/8"</option>
-            <option value="38.1">1 1/2"</option>
-            <option value="50.8">2"</option>
-            <option value="60.33">2 3/8"</option>
-            <option value="63.5">2 1/2"</option>
-            <option value="69.85">2 3/4"</option>
-            <option value="76.2">3"</option>
-            <option value="82.55">3 1/4"</option>
-            <option value="92.08">3 5/8"</option>
-            <option value="101.6">4"</option>
-          </datalist>
-          <label data-i18n-title="stock_di_help"><span data-i18n="stock_di"></span><input id="stockDi" type="number" min="0" max="190" step="any" value="0" /></label>
-          <label><span data-i18n="stock_t"></span><input id="stockT" type="number" min="15" max="400" step="any" value="105" /></label>
-          <label data-i18n-title="stock_b_help"><span data-i18n="stock_b"></span><input id="stockB" type="number" min="10" max="300" step="any" value="80" /></label>
-          <label data-i18n-title="stock_f_help"><span data-i18n="stock_f"></span><input id="stockF" type="number" min="0" max="10" step="0.5" value="1" /></label>
-          <label data-i18n-title="material_help"><span data-i18n="material"></span><select id="stockMaterial"></select></label>
-          <button id="btnApplyStock" class="btn" data-i18n="apply"></button>
-          <div class="stock-info" id="stockInfo"></div>
-          <label><span data-i18n="dialect"></span>
-            <select id="dialectSelect">
-              <option value="sinumerik">Sinumerik (802D sl)</option>
-              <option value="fanuc">Fanuc</option>
-            </select>
-          </label>
-        </div>
-      </details>
-
-      <details class="settings">
-        <summary data-i18n="turret"></summary>
-        <label class="turret-side" data-i18n-title="turret_side_help"><span data-i18n="turret_side"></span><select id="turretSide"></select></label>
-        <div class="turret" id="toolList"></div>
-      </details>
+      <div class="setup-bar">
+        <button type="button" id="btnStockDlg" class="setup-btn" data-i18n-title="setup_stock_help">
+          <span class="lbl" data-i18n="stock"></span><span id="stockSummary" class="val"></span>
+        </button>
+        <button type="button" id="btnTurretDlg" class="setup-btn" data-i18n-title="setup_turret_help">
+          <span class="lbl" data-i18n="turret"></span><span id="turretSummary" class="val"></span>
+        </button>
+      </div>
 
       <div class="messages" id="messages"></div>
     </section>
@@ -149,6 +119,52 @@
       </div>
     </section>
   </main>
+
+  <!-- Configuração do programa: peça bruta e torre (salvas junto com o programa) -->
+  <dialog id="dlgStock" class="card setup-dlg">
+    <div class="dlg-head"><h2 data-i18n="stock"></h2><button type="button" class="btn sm" id="stockClose" data-i18n="close"></button></div>
+    <p class="muted dlg-note" data-i18n="setup_saved_note"></p>
+    <div class="settings">
+      <div class="grid">
+          <label><span data-i18n="stock_d"></span><input id="stockD" type="number" min="5" max="200" step="any" value="50" list="inchBars" data-i18n-title="stock_inch_hint" /></label>
+          <datalist id="inchBars">
+            <option value="25.4">1"</option>
+            <option value="31.75">1 1/8"</option>
+            <option value="38.1">1 1/2"</option>
+            <option value="50.8">2"</option>
+            <option value="60.33">2 3/8"</option>
+            <option value="63.5">2 1/2"</option>
+            <option value="69.85">2 3/4"</option>
+            <option value="76.2">3"</option>
+            <option value="82.55">3 1/4"</option>
+            <option value="92.08">3 5/8"</option>
+            <option value="101.6">4"</option>
+          </datalist>
+          <label data-i18n-title="stock_di_help"><span data-i18n="stock_di"></span><input id="stockDi" type="number" min="0" max="190" step="any" value="0" /></label>
+          <label><span data-i18n="stock_t"></span><input id="stockT" type="number" min="15" max="400" step="any" value="105" /></label>
+          <label data-i18n-title="stock_b_help"><span data-i18n="stock_b"></span><input id="stockB" type="number" min="10" max="300" step="any" value="80" /></label>
+          <label data-i18n-title="stock_f_help"><span data-i18n="stock_f"></span><input id="stockF" type="number" min="0" max="10" step="0.5" value="1" /></label>
+          <label data-i18n-title="material_help"><span data-i18n="material"></span><select id="stockMaterial"></select></label>
+          <button id="btnApplyStock" class="btn" data-i18n="apply"></button>
+          <div class="stock-info" id="stockInfo"></div>
+          <label><span data-i18n="dialect"></span>
+            <select id="dialectSelect">
+              <option value="sinumerik">Sinumerik (802D sl)</option>
+              <option value="fanuc">Fanuc</option>
+            </select>
+          </label>
+        </div>
+    </div>
+  </dialog>
+
+  <dialog id="dlgTurret" class="card setup-dlg wide">
+    <div class="dlg-head"><h2 data-i18n="turret"></h2><button type="button" class="btn sm" id="turretClose" data-i18n="close"></button></div>
+    <p class="muted dlg-note" data-i18n="setup_saved_note"></p>
+    <div class="settings">
+      <label class="turret-side" data-i18n-title="turret_side_help"><span data-i18n="turret_side"></span><select id="turretSide"></select></label>
+      <div class="turret" id="toolList"></div>
+    </div>
+  </dialog>
 
   <dialog id="dlgPassword" class="card">
     <form method="dialog" id="formPassword">

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { requireUser } from '../auth.js';
+import { sanitizeSetup } from '../../shared/setup.js';
 
 export const NAME_RE = /^[A-Za-z0-9_-]{1,40}(\.(mpf|spf|nc|txt))?$/i;
 const EXAMPLE_RE = /^[\w-]{1,60}\.(mpf|spf|nc|txt)$/i;
@@ -11,11 +12,29 @@ const MAX_PROGRAMS = 500;
 export default function programRoutes({ db, examplesDir }) {
   const r = Router();
   const list = db.prepare('SELECT id, name, updated_at FROM programs WHERE user_id = ? ORDER BY name');
-  const get = db.prepare('SELECT id, name, code, updated_at FROM programs WHERE id = ? AND user_id = ?');
+  const getRow = db.prepare('SELECT id, name, code, setup, updated_at FROM programs WHERE id = ? AND user_id = ?');
+  // setup: configuração salva com o programa (JSON no banco; null nos programas antigos)
+  const get = {
+    get: (id, uid) => {
+      const p = getRow.get(id, uid);
+      if (!p) return p;
+      let setup = null;
+      try {
+        setup = p.setup ? JSON.parse(p.setup) : null;
+      } catch {
+        /* configuração corrompida: o programa abre com a configuração atual */
+      }
+      return { ...p, setup };
+    },
+  };
+  const setupJson = (s) => {
+    const v = sanitizeSetup(s);
+    return v ? JSON.stringify(v) : null;
+  };
   const byName = db.prepare('SELECT id FROM programs WHERE user_id = ? AND name = ?');
   const count = db.prepare('SELECT COUNT(*) AS n FROM programs WHERE user_id = ?');
-  const insert = db.prepare('INSERT INTO programs (user_id, name, code) VALUES (?, ?, ?)');
-  const update = db.prepare("UPDATE programs SET name = ?, code = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?");
+  const insert = db.prepare('INSERT INTO programs (user_id, name, code, setup) VALUES (?, ?, ?, ?)');
+  const update = db.prepare("UPDATE programs SET name = ?, code = ?, setup = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?");
   const del = db.prepare('DELETE FROM programs WHERE id = ? AND user_id = ?');
 
   const listExamples = async () => (await readdir(examplesDir)).filter((f) => EXAMPLE_RE.test(f)).sort();
@@ -53,7 +72,7 @@ export default function programRoutes({ db, examplesDir }) {
     if (err) return res.status(400).json({ error: err });
     if (byName.get(req.user.id, name)) return res.status(409).json({ error: 'name_exists' });
     if (count.get(req.user.id).n >= MAX_PROGRAMS) return res.status(400).json({ error: 'too_many_programs' });
-    const { lastInsertRowid } = insert.run(req.user.id, name, code);
+    const { lastInsertRowid } = insert.run(req.user.id, name, code, setupJson(req.body.setup));
     res.status(201).json(get.get(Number(lastInsertRowid), req.user.id));
   });
 
@@ -67,7 +86,8 @@ export default function programRoutes({ db, examplesDir }) {
     if (err) return res.status(400).json({ error: err });
     const other = byName.get(req.user.id, name);
     if (other && other.id !== id) return res.status(409).json({ error: 'name_exists' });
-    update.run(name, code, id, req.user.id);
+    const setup = req.body && 'setup' in req.body ? setupJson(req.body.setup) : cur.setup ? JSON.stringify(cur.setup) : null;
+    update.run(name, code, setup, id, req.user.id);
     res.json(get.get(id, req.user.id));
   });
 

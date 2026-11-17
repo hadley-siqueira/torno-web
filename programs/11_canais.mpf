@@ -1,0 +1,53 @@
+; Eixo com tres canais pelo CYCLE93: canal de anel (o-ring), canal em V e canal largo
+; Bruto: D40 x 70 mm, face em Z1
+; Material: aluminum
+; Torre: sinutrain
+; T1 desbaste, T5 bedame 3 mm, T13 bedame de corte
+G18 G90 G95 DIAMON
+
+; ========== FACEAMENTO E DIAMETRO 38 (T1) ==========
+T1 D1
+G96 S250 LIMS=3000 M4
+G0 X44 Z0
+G1 X-1.6 F0.2
+G0 X44 Z3
+CYCLE95("CORPO:CORPO_FIM", 1, 0.05, 0.1, , 0.25, 0.15, 0.1, 9, , , 1)
+G0 X150 Z100
+
+T5 D1
+G97 S700 M4
+G1 F0.06
+
+; ========== CANAL DE ANEL 4 x 2,5 ==========
+; Z-10 a Z-14 (inicio a direita, VARI=15: chanfros como CHR), raio 0,4 no fundo,
+; chanfro 0,3 nas bordas, sobremetal 0,1 para o passe de acabamento
+G0 X42 Z-8
+CYCLE93(38, -10, 4, 2.5, 0, 0, 0, -0.3, -0.3, 0.4, 0.4, 0.1, 0.1, 1, 0.3, 15, 1)
+
+; ========== CANAL EM V (FLANCOS DE 30 GRAUS) ==========
+; fundo de 3 mm a partir de Z-25, profundidade 3
+G0 X42 Z-23
+CYCLE93(38, -25, 3, 3, 0, 30, 30, 0, 0, 0, 0, 0, 0, 1, 0, 5, 1)
+
+; ========== CANAL LARGO 10 x 2 ==========
+; inicio a esquerda em Z-48 (VARI=1): o canal vai de Z-48 a Z-38
+G0 X42 Z-50
+CYCLE93(38, -48, 10, 2, 0, 0, 0, 0, 0, 0, 0, 0.1, 0.1, 1, 0, 1, 1)
+G0 X150 Z100
+
+; ========== CORTE COM 55 mm (T13) ==========
+T13 D1
+G97 S700 M4
+G0 X44 Z-58
+G1 X-1 F0.06
+G0 X44
+G0 X150 Z100
+M30
+
+; ---------- contorno do corpo (lido pelo CYCLE95) ----------
+CORPO:
+G1 X34 Z1
+X38 Z-1
+Z-60
+X42
+CORPO_FIM:

@@ -7,6 +7,7 @@ import { parseProgram, stockFromProgram } from '/shared/gcode.js';
 import { t, formatMessage, apiErrorText, LANGS } from '/shared/i18n.js';
 import { TOOL_TYPES, TOOL_SLOTS, TURRET_DEFAULT, TURRET_PRESETS, buildTurret, sanitizeTurret, isLegacyDefault, toolName } from '/shared/tools.js';
 import { MATERIALS, DEFAULT_MATERIAL, TURRET_SIDES, DEFAULT_TURRET_SIDE, materialOf } from '/shared/appearance.js';
+import { sanitizeSetup, setupFromExample, sameSetup, turretPresetName } from '/shared/setup.js';
 import { Simulator } from '/shared/simulator.js';
 
 const $ = (id) => document.getElementById(id);
@@ -143,6 +144,7 @@ function setLang(lang) {
   setStatus(sim.status);
   renderToolList();
   renderAppearance();
+  updateSetupSummary();
   renderProgramSelect();
   updateDocTitle();
   rerenderMessages();
@@ -244,10 +246,49 @@ ta.addEventListener('keydown', (e) => {
 
 // ---------------------------------------------------------------- documento / programas
 const draftKey = () => `torno-cnc:draft:${app.user?.id}`;
-const isDirty = () => ta.value !== app.doc.savedCode;
+// Modificado: o código ou a configuração (peça bruta, material, torre) mudou desde que abriu/salvou
+const isDirty = () => ta.value !== app.doc.savedCode || (!!app.doc.savedSetup && !sameSetup(currentSetup(), app.doc.savedSetup));
 
 function saveDraft() {
-  store.set(draftKey(), { code: ta.value, doc: app.doc });
+  store.set(draftKey(), { code: ta.value, doc: app.doc, setup: currentSetup() });
+}
+
+// ---------------------------------------------------------------- configuração do programa
+// Peça bruta (a aplicada na cena), material e torre: salvos junto com o programa
+function currentSetup() {
+  return { stock: app.stock, material: app.material, turret: app.turretCfg };
+}
+
+/** Aplica a configuração de um programa (só as partes que ela traz). */
+function applySetup(setup) {
+  const s = sanitizeSetup(setup);
+  if (!s) return false;
+  if (s.material) applyMaterial(s.material, false);
+  if (s.turret) applyTurret(s.turret, true, false);
+  if (s.stock) {
+    setStockInputs(s.stock);
+    applyStock();
+  }
+  return true;
+}
+
+// Resumo nos botões do painel: "Ø50 × 80 · Aço carbono" e "Magazine do SinuTrain"
+function updateSetupSummary() {
+  const st = app.stock;
+  const mat = materialOf(app.material).name;
+  $('stockSummary').textContent = st
+    ? `Ø${fmtNum(st.diameter)}${st.bore ? `/${fmtNum(st.bore)}` : ''} × ${fmtNum(st.length + (st.clamp ?? 25))} · ${mat[app.lang] || mat.pt}`
+    : '—';
+  const preset = turretPresetName(app.turretCfg);
+  const n = Object.values(app.turretCfg).filter(Boolean).length;
+  $('turretSummary').textContent = preset ? tr(`turret_${preset === 'torre8' ? '8' : preset}`) : tr('turret_custom', { n });
+}
+
+// Uma mudança na configuração: o programa aberto fica modificado
+function setupChanged() {
+  updateDocTitle();
+  updateSetupSummary();
+  saveDraft();
 }
 
 function updateDocTitle() {
@@ -265,17 +306,22 @@ function updateDocTitle() {
   $('btnDelete').disabled = d.kind !== 'mine';
 }
 
-function setDocument(doc, code) {
+// setup: configuração do programa (exemplo ou programa salvo). Sem ela (programa antigo),
+// fica a configuração atual e o bruto do cabeçalho, se houver.
+function setDocument(doc, code, setup = null) {
   if (sim.status === 'run' || sim.status === 'hold') doReset();
-  app.doc = { ...doc, savedCode: doc.savedCode ?? code };
   ta.value = code;
   lineMarks = new Map();
   ta.scrollTop = 0;
   updateGutter();
+  if (!applySetup(setup)) {
+    if (stockFromHeaderInputs(code)) applyStock();
+    else doReset();
+  }
+  app.doc = { ...doc, savedCode: doc.savedCode ?? code, savedSetup: currentSetup() };
   updateDocTitle();
+  updateSetupSummary();
   saveDraft();
-  if (stockFromHeaderInputs(code)) applyStock();
-  else doReset();
 }
 
 function renderProgramSelect() {
@@ -308,11 +354,12 @@ async function openSelected() {
   const [kind, ref] = [v.slice(0, v.indexOf(':')), v.slice(v.indexOf(':') + 1)];
   try {
     if (kind === 'ex') {
+      // o exemplo traz a peça bruta, o material e a torre que o código espera
       const code = await api('GET', `/api/programs/examples/${encodeURIComponent(ref)}`);
-      setDocument({ kind: 'example', id: null, name: ref }, code);
+      setDocument({ kind: 'example', id: null, name: ref }, code, setupFromExample(code, app.stock));
     } else {
       const p = await api('GET', `/api/programs/${Number(ref)}`);
-      setDocument({ kind: 'mine', id: p.id, name: p.name }, p.code);
+      setDocument({ kind: 'mine', id: p.id, name: p.name }, p.code, p.setup);
     }
     clearMessages();
     msgKey('S_LOADED', { name: app.doc.name }, 'info');
@@ -323,7 +370,7 @@ async function openSelected() {
 
 function newProgram() {
   if (isDirty() && !confirm(tr('confirm_discard'))) return;
-  setDocument({ kind: 'new', id: null, name: '' }, '; \nG18 G90 G95 DIAMON\nT1 D1\nG97 S1000 M3\n\nM30\n');
+  setDocument({ kind: 'new', id: null, name: '' }, '; \nG18 G90 G95 DIAMON\nT1 D1\nG97 S1000 M3\n\nM30\n', currentSetup());
   clearMessages();
 }
 
@@ -331,14 +378,14 @@ async function saveProgram(asNew = false) {
   const d = app.doc;
   try {
     if (d.kind === 'mine' && !asNew) {
-      const p = await api('PUT', `/api/programs/${d.id}`, { code: ta.value });
-      app.doc = { kind: 'mine', id: p.id, name: p.name, savedCode: p.code };
+      const p = await api('PUT', `/api/programs/${d.id}`, { code: ta.value, setup: currentSetup() });
+      app.doc = { kind: 'mine', id: p.id, name: p.name, savedCode: p.code, savedSetup: currentSetup() };
     } else {
       const suggestion = d.kind === 'example' ? d.name.replace(/^\d+_/, '').toUpperCase() : d.name || 'PROGRAMA_01.MPF';
       const name = prompt(tr('prompt_name'), suggestion)?.trim();
       if (!name) return;
-      const p = await api('POST', '/api/programs', { name, code: ta.value });
-      app.doc = { kind: 'mine', id: p.id, name: p.name, savedCode: p.code };
+      const p = await api('POST', '/api/programs', { name, code: ta.value, setup: currentSetup() });
+      app.doc = { kind: 'mine', id: p.id, name: p.name, savedCode: p.code, savedSetup: currentSetup() };
     }
     saveDraft();
     await refreshPrograms();
@@ -451,7 +498,11 @@ function applyMaterial(key, save = true) {
   partMaterial.color.setHex(m.cut);
   partMaterial.metalness = m.metalness;
   partMaterial.roughness = m.roughness;
-  if (save) saveSettings({ material: app.material });
+  if ($('stockMaterial')) $('stockMaterial').value = app.material;
+  if (save) {
+    saveSettings({ material: app.material });
+    setupChanged();
+  }
 }
 
 function applyTurretSide(side, save = true) {
@@ -460,7 +511,8 @@ function applyTurretSide(side, save = true) {
   if (save) saveSettings({ turretSide: app.turretSide });
 }
 
-function applyTurret(cfg, save = true) {
+// notify = false quando quem chama é a abertura de um programa (não é uma mudança do aluno)
+function applyTurret(cfg, save = true, notify = true) {
   if (sim.status === 'run' || sim.status === 'hold') {
     msgKey('S_STOCK_BUSY', {}, 'warn');
     renderToolList();
@@ -473,6 +525,7 @@ function applyTurret(cfg, save = true) {
   if (save) saveSettings({ turret: app.turretCfg });
   renderToolList();
   doReset();
+  if (notify) setupChanged();
 }
 
 function setTurretSlot(n, type) {
@@ -552,12 +605,14 @@ function applyStock() {
     return false;
   }
   scene.setStock(p);
+  app.stock = p;
   rulers.clearRef();
   ui.home = { x: Math.max(150, p.diameter + 40), z: 100 };
   sim.home = ui.home;
   sim.setStock(scene.stock);
   saveSettings({ stock: p });
   doReset();
+  setupChanged();
   return true;
 }
 
@@ -838,10 +893,17 @@ $('langSelect').onchange = (e) => {
 };
 $('dialectSelect').onchange = (e) => saveSettings({ dialect: e.target.value });
 $('stockMaterial').onchange = (e) => applyMaterial(e.target.value);
+$('btnStockDlg').onclick = () => {
+  setStockInputs(app.stock || readStockInputs().params); // descarta o que não foi aplicado
+  $('dlgStock').showModal();
+};
+$('btnTurretDlg').onclick = () => $('dlgTurret').showModal();
+$('stockClose').onclick = () => $('dlgStock').close();
+$('turretClose').onclick = () => $('dlgTurret').close();
 $('turretSide').onchange = (e) => applyTurretSide(e.target.value);
 $('btnApplyStock').onclick = () => {
   if (sim.status === 'run' || sim.status === 'hold') return msgKey('S_STOCK_BUSY', {}, 'warn');
-  applyStock();
+  if (applyStock()) $('dlgStock').close();
 };
 $('speed').oninput = (e) => {
   const i = Number(e.target.value);
@@ -910,9 +972,9 @@ $('btnFinished').onclick = () => showFinished(!scene.finished);
     app.doc = draft.doc || { kind: 'new', id: null, name: '', savedCode: '' };
     ta.value = draft.code;
     updateGutter();
-    updateDocTitle();
     renderProgramSelect();
-    applyStock();
+    if (!applySetup(draft.setup)) applyStock();
+    updateDocTitle();
     msgKey('S_RESTORED', {}, 'info');
   } else {
     applyStock();

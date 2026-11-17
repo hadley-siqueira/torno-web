@@ -58,8 +58,8 @@ export default function turmaRoutes({ db }) {
       `SELECT s.*, u.name AS user_name, u.username FROM submissions s JOIN users u ON u.id = s.user_id
         WHERE s.id = ? AND s.turma_id = ?`
     ),
-    program: db.prepare('SELECT id, name, code FROM programs WHERE id = ? AND user_id = ?'),
-    submit: db.prepare('INSERT INTO submissions (turma_id, user_id, program_id, name, code) VALUES (?, ?, ?, ?, ?)'),
+    program: db.prepare('SELECT id, name, code, setup FROM programs WHERE id = ? AND user_id = ?'),
+    submit: db.prepare('INSERT INTO submissions (turma_id, user_id, program_id, name, code, setup) VALUES (?, ?, ?, ?, ?, ?)'),
   };
 
   // Gera código único (colisão é improvável, mas tenta de novo)
@@ -171,7 +171,7 @@ export default function turmaRoutes({ db }) {
     if (!ctx.isMember) return res.status(403).json({ error: 'not_member' });
     const p = q.program.get(Number(req.body?.programId), req.user.id);
     if (!p) return res.status(404).json({ error: 'not_found' });
-    const { lastInsertRowid } = q.submit.run(ctx.t.id, req.user.id, p.id, p.name, p.code);
+    const { lastInsertRowid } = q.submit.run(ctx.t.id, req.user.id, p.id, p.name, p.code, p.setup ?? null);
     res.status(201).json({ id: Number(lastInsertRowid), name: p.name });
   });
 
@@ -180,7 +180,13 @@ export default function turmaRoutes({ db }) {
     if (!ctx) return;
     const s = q.sub.get(Number(req.params.sid), ctx.t.id);
     if (!s || (!ctx.isOwner && s.user_id !== req.user.id)) return res.status(404).json({ error: 'not_found' });
-    res.json({ id: s.id, name: s.name, code: s.code, submitted_at: s.submitted_at, user_name: s.user_name, username: s.username });
+    let setup = null;
+    try {
+      setup = s.setup ? JSON.parse(s.setup) : null;
+    } catch {
+      /* sem configuração */
+    }
+    res.json({ id: s.id, name: s.name, code: s.code, setup, submitted_at: s.submitted_at, user_name: s.user_name, username: s.username });
   });
 
   return r;

@@ -3,8 +3,7 @@ import { requireUser } from '../auth.js';
 import { LANGS } from '../../shared/i18n.js';
 import { sanitizeTurret } from '../../shared/tools.js';
 import { MATERIALS, TURRET_SIDES } from '../../shared/appearance.js';
-
-const num = (v, min, max) => (typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max ? v : undefined);
+import { sanitizeStock } from '../../shared/setup.js';
 
 /** Aceita só as chaves conhecidas, com tipos e faixas válidos. */
 export function sanitizeSettings(input = {}) {
@@ -19,21 +18,8 @@ export function sanitizeSettings(input = {}) {
   if (TURRET_SIDES.includes(input.turretSide)) out.turretSide = input.turretSide;
   const turret = sanitizeTurret(input.turret);
   if (turret) out.turret = turret;
-  if (input.stock && typeof input.stock === 'object') {
-    const s = {
-      diameter: num(input.stock.diameter, 5, 200),
-      length: num(input.stock.length, 10, 300),
-      faceZ: num(input.stock.faceZ, 0, 10),
-    };
-    if (Object.values(s).every((v) => v !== undefined)) {
-      // opcionais: Ø interno (tubo) e comprimento preso nas castanhas
-      const bore = num(input.stock.bore, 0, s.diameter - 2);
-      const clamp = num(input.stock.clamp, 5, 100);
-      if (bore) s.bore = bore;
-      if (clamp !== undefined) s.clamp = clamp;
-      out.stock = s;
-    }
-  }
+  const stock = sanitizeStock(input.stock);
+  if (stock) out.stock = stock;
   return out;
 }
 

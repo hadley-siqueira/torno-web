@@ -251,7 +251,13 @@ export class StockModel {
     const lo = this.index(Math.min(z0, z1) + s0);
     const hi = this.index(Math.max(z0, z1) + s1);
     const src = kind === 'ext' ? this.r : this.ri;
-    for (let i = lo; i <= hi; i++) if (Number.isNaN(rec.before[i])) rec.before[i] = src[i];
+    // outra entrada da mesma rosca (NUMT > 1) já cortou até o fundo: a crista é a de antes dela
+    const others = this.threads.filter((t) => t !== rec && t.kind === kind);
+    for (let i = lo; i <= hi; i++) {
+      if (!Number.isNaN(rec.before[i])) continue;
+      const prev = others.find((t) => !Number.isNaN(t.before[i]));
+      rec.before[i] = prev ? prev.before[i] : src[i];
+    }
   }
 
   /** Há rosca registrada na amostra i? */

@@ -1,0 +1,53 @@
+; Flange com cubo: CYCLE95 de faceamento (VARI=10), CYCLE93 no diametro externo
+; Bruto: D80 x 40 mm, face em Z2
+; Material: aluminum
+; Torre: sinutrain
+; T1 desbaste, T3 acabamento, T5 bedame 3 mm, T13 bedame de corte
+G18 G90 G95 DIAMON
+
+; ========== FACEAMENTO DA FACE BRUTA (T1) ==========
+T1 D1
+G96 S250 LIMS=2500 M4
+G0 X84 Z0
+G1 X-1.6 F0.2
+G0 X84 Z3
+
+; ========== CUBO D40 E FLANGE: DESBASTE PELA FACE (T1, VARI=2) ==========
+; passes de 2 mm em Z, cortando de fora para o centro
+CYCLE95("FACE:FACE_FIM", 2, 0.1, 0.1, , 0.25, 0.15, 0.1, 2, , , 1)
+G0 X150 Z100
+
+; ========== ACABAMENTO PELA FACE (T3, VARI=6) ==========
+T3 D1
+G96 S300 LIMS=3000 M4
+G0 X84 Z3
+CYCLE95("FACE:FACE_FIM", , , , , , , 0.1, 6, , , 1)
+G0 X150 Z100
+
+; ========== CANAL 4 x 2 NO DIAMETRO 80 (T5) ==========
+; inicio a direita em Z-18 (VARI=5), cantos de cima com chanfro de 0,5 (CHF, VARI < 10)
+T5 D1
+G97 S600 M4
+G0 X84 Z-15
+G1 F0.08
+CYCLE93(80, -18, 4, 2, 0, 0, 0, -0.5, -0.5, 0, 0, 0.1, 0.1, 1, 0.3, 5, 1)
+G0 X150 Z100
+
+; ========== CORTE COM 30 mm (T13) ==========
+T13 D1
+G97 S500 M4
+G0 X84 Z-33
+G1 X-1 F0.06
+G0 X84
+G0 X150 Z100
+M30
+
+; ---------- contorno da face (lido pelo CYCLE95) ----------
+FACE:
+G1 X82 Z-12
+X44
+X40 Z-10
+Z-1
+X38 Z0
+X0
+FACE_FIM:
