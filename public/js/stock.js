@@ -49,6 +49,7 @@ export class Stock extends StockModel {
       s.ri[i] = part.ri[j] + (part.ri[j + 1] - part.ri[j]) * f;
       s.cut[i] = 3;
     }
+    if (part.threads?.length) s.importThreads(part.threads);
     s.markDirty(0, s.N - 1);
     s.updateGeometry();
     return s;
@@ -148,6 +149,36 @@ export class Stock extends StockModel {
   }
 
   /**
+   * Anel de uma amostra com rosca: o raio muda com o ângulo (hélice). A normal vem da
+   * inclinação entre as amostras vizinhas no mesmo ângulo (os flancos do filete).
+   */
+  writeThreadRing(ring, i, z, outer, color) {
+    const { pos, nor, col, cos, sin, RV } = this;
+    const im = Math.max(0, i - 1);
+    const ip = Math.min(this.N - 1, i + 1);
+    const dz = (ip - im) * this.h || 1;
+    const k = outer ? 0 : 1;
+    for (let j = 0; j < RV; j++) {
+      const th = (j / this.seg) * Math.PI * 2;
+      const rad = this.threadRadii(i, th)[k];
+      const sl = (this.threadRadii(ip, th)[k] - this.threadRadii(im, th)[k]) / dz;
+      const a = 1 / Math.sqrt(1 + sl * sl);
+      const nAx = outer ? -sl * a : sl * a;
+      const nRad = outer ? a : -a;
+      const o = (ring * RV + j) * 3;
+      pos[o] = z;
+      pos[o + 1] = rad * cos[j];
+      pos[o + 2] = rad * sin[j];
+      nor[o] = nAx;
+      nor[o + 1] = nRad * cos[j];
+      nor[o + 2] = nRad * sin[j];
+      col[o] = color.r;
+      col[o + 1] = color.g;
+      col[o + 2] = color.b;
+    }
+  }
+
+  /**
    * Onde não há material, os anéis externo e interno "colam" no anel do vizinho
    * com material (mesmo z e raio = furo do vizinho). Assim a face de uma peça
    * furada vira uma coroa e as faixas sem material ficam com área zero.
@@ -211,7 +242,13 @@ export class Stock extends StockModel {
     const ri0 = clamped ? this.Ri0 : rin[0];
 
     this.writeRing(0, z0, r0, 0, 1, clamped ? RAW : CUT, clamped);
+    const threads = this.threads.length > 0;
     for (let i = lo; i <= hi; i++) {
+      if (threads && solid(i) && this.threadAt(i)) {
+        this.writeThreadRing(this.ringOuter + i, i, zz[i], true, this.cut[i] & 1 ? CUT : RAW);
+        this.writeThreadRing(this.ringInner + i, i, zz[i], false, INNER);
+        continue;
+      }
       const ip = Math.max(0, i - 1);
       const inx = Math.min(N - 1, i + 1);
       // externo: normal para fora
@@ -275,8 +312,16 @@ export class Stock extends StockModel {
     if (!this.secPos) return;
     if (!force && !this.section.visible) return;
     const p = this.secPos;
-    const put = (k, z, ro, rin) => {
-      const vals = [ro, rin, -rin, -ro];
+    // com rosca, o corte mostra os filetes no ângulo do plano de corte (sectionTheta,
+    // atualizado pela cena enquanto a peça gira): metade de cima em θ, de baixo em θ + π
+    const th = this.sectionTheta || 0;
+    const put = (k, z, ro, rin, i = -1) => {
+      let vals = [ro, rin, -rin, -ro];
+      if (i >= 0 && this.threads.length && this.threadAt(i)) {
+        const [ou, iu] = this.threadRadii(i, th);
+        const [od, id] = this.threadRadii(i, th + Math.PI);
+        vals = [ou, Math.min(iu, ou), -Math.min(id, od), -od];
+      }
       for (let v = 0; v < 4; v++) {
         const o = (k * 4 + v) * 3;
         p[o] = z;
@@ -286,7 +331,7 @@ export class Stock extends StockModel {
     };
     if (this.clamp > 0) put(0, this.zLeft - this.clamp, this.R0, this.Ri0);
     else put(0, this.zAt(0), this.r[0], Math.min(this.ri[0], this.r[0]));
-    for (let i = 0; i < this.N; i++) put(i + 1, this.zAt(i), this.r[i], Math.min(this.ri[i], this.r[i]));
+    for (let i = 0; i < this.N; i++) put(i + 1, this.zAt(i), this.r[i], Math.min(this.ri[i], this.r[i]), i);
     this.section.geometry.attributes.position.needsUpdate = true;
   }
 

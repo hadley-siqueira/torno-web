@@ -351,6 +351,7 @@ export class LatheScene {
       if (on) st.updateSection(true);
     }
     if (this.stock && this.finished && this.finishedStock) this.stock.section.visible = false;
+    this.syncThreadSection();
     this.invalidate();
   }
 
@@ -458,7 +459,22 @@ export class LatheScene {
     const omega = Math.min((rpm / 60) * Math.PI * 2, 22); // limitado p/ não "piscar"
     this.spindleAngle += (dir === 4 ? -1 : 1) * omega * dt;
     this.spindleGroup.rotation.x = this.spindleAngle;
+    this.syncThreadSection();
     this.invalidate();
+  }
+
+  // Corte com rosca: os filetes no plano de corte mudam enquanto a peça gira
+  syncThreadSection() {
+    const st = this.stock;
+    if (st?.threads?.length && st.section.visible) {
+      st.sectionTheta = this.sideAngle - this.spindleAngle;
+      st.updateSection(true);
+    }
+    const fs = this.finishedStock;
+    if (fs?.threads?.length && fs.section.visible) {
+      fs.sectionTheta = this.sideAngle;
+      fs.updateSection(true);
+    }
   }
 
   // ---------- Peça pronta ----------

@@ -158,9 +158,16 @@ Ciclos do **802D sl** (são estes que os alunos usam na máquina):
 - [ ] **CYCLE95:** desbaste de contorno (longitudinal/transversal, desbaste e acabamento), com
       contorno em subprograma. Prioridade alta, mas depois de garantir que G0/G1 manual (como se ensina
       nas aulas iniciais) está impecável.
-- [ ] **CYCLE93:** canal.
+- [x] **CYCLE95** (2026-11-17): desbaste, acabamento e completo (VARI 1–12: longitudinal/faceamento,
+      externo/interno), contorno entre rótulos (`"INICIO:FIM"`) ou em outro programa salvo (`"CONT1"`),
+      rebaixos, sobremetal em Z/X/paralelo, CHR/CHF/RND e ANG= dentro do contorno.
+- [x] **CYCLE93** (2026-11-17): canal longitudinal externo e interno, largura maior que a ferramenta,
+      flancos inclinados, raios/chanfros nos cantos, mergulhos com quebra-cavaco, sobremetal e espera.
+      Falta canal na face (VARI 2/4/6/8).
 - [ ] **CYCLE94 / CYCLE96:** alívios (forma E/F e de rosca).
-- [ ] **Rosca:** G33 com hélice visível na peça, **CYCLE97** (rosca) e CYCLE98 (rosca encadeada), com passes múltiplos.
+- [x] **Rosca** (2026-11-17): G33 e **CYCLE97** com **hélice visível** na peça (externa e interna, várias
+      entradas, `SF=`/NSP), passes de penetração constante ou de seção constante, passes em vazio.
+      Falta CYCLE98 (rosca encadeada).
 - [ ] **Furação no centro:** CYCLE81–CYCLE83, com broca de centro e broca helicoidal.
 - [x] **Usinagem interna** (2026-11-11): perfil externo e interno; furação em X0, mandrilamento e rosca
       interna; colisão do corpo da barra e broca fora do centro.
@@ -168,8 +175,8 @@ Ciclos do **802D sl** (são estes que os alunos usam na máquina):
 - [x] **Exemplos de curso técnico** (2026-11-11): pino roscado M20, bucha, peça completa com as 8 ferramentas.
 - [ ] Fanuc (secundário): G71/G70, G75, G76/G92, G83, só se a pergunta 4 confirmar.
 - [ ] **Compensação de raio da ponta** G41/G42 (perfil correto em cones e raios).
-- [ ] **Subprogramas e variáveis básicas:** subprogramas (`.SPF`, chamada por nome/`L`), parâmetros `R`,
-      rótulos e `GOTOF`/`GOTOB`, o mínimo usado nos ciclos do 802D sl.
+- [ ] **Subprogramas e variáveis básicas:** subprogramas (`.SPF`, chamada por nome/`L`), parâmetros `R`.
+      Rótulos e `GOTOF`/`GOTOB` já existem (2026-11-17), e o CYCLE95 já lê contorno de outro programa.
 - [x] **Vistas** (2026-11-11): 3D, Lateral (2D em corte), Face, Meio corte e Peça pronta, como no SINUMERIK Operate.
 - [ ] **Vistas que faltam:** duas janelas, medição na vista e ampliação por região.
 - [ ] **Editor melhor:** destaque de sintaxe, erros marcados enquanto digita e ajuda ao passar o mouse sobre G/M.
@@ -187,7 +194,8 @@ Ideias tiradas da apostila do professor (ver Contexto):
       (as posições da torre do TornoWeb não batem com as dos exercícios).
 - [x] **Bedame com dois cortes** (2026-11-11): D1 = canto esquerdo, D2 = canto direito.
 - [ ] **Zero peça na face esquerda** (`G58`/`G54` com Z positivo): peça de Z0 (lado da placa) até Z+comprimento.
-- [ ] **CYCLE95 com rótulos** (`"INICIO:FIM"`, contorno depois do M2) e **CYCLE97** com os parâmetros da apostila.
+- [x] **CYCLE95 com rótulos** (`"INICIO:FIM"`, contorno depois do M2) e **CYCLE97** (2026-11-17). Conferir
+      com os exercícios da apostila quando houver autorização.
 - [x] **Brutos em polegadas** (2026-11-11) na lista da peça bruta (1", 1 1/8", 2", 2 3/4", 3 1/4", 3 5/8"). Obs.: a apostila chama 60,33 mm de 2 3/4", mas 60,33 mm = **2 3/8"** (2 3/4" = 69,85 mm); vale avisar o professor.
 - [ ] **Exercícios da apostila** como exemplos/testes automáticos (pedir autorização ao professor).
 
@@ -214,7 +222,9 @@ Ideias tiradas dos vídeos dos alunos (ver Contexto):
 - [ ] **Escolha de ferramentas pela operação:** a torre configurável já existe; nos exercícios, deixar
       o professor definir quais ferramentas estão disponíveis e o aluno montar a torre.
 
-- [ ] **Roscas:** hoje a rosca aparece como um rebaixo liso até o fundo do filete. Pedido:
+- [x] **Roscas** (2026-11-17): hélice visível (só na malha 3D e no corte da vista lateral; as medidas
+      usam o fundo do filete), passes aprofundando, várias entradas, CYCLE97. Faltam os avisos
+      didáticos abaixo e o CYCLE98. Pedido original:
       - hélice visível na peça (externa e interna), com passo, profundidade e sentido corretos;
       - passes múltiplos de rosca visíveis (o filete aprofundando a cada passe);
       - G33 cônica, várias entradas e ângulo de início `SF=`, conforme o 802D sl;
@@ -589,6 +599,9 @@ T1–T3 já existem no simulador. T4–T8 dependem da usinagem interna e da rosc
 | Tema | Suposição adotada | Confirmar com |
 |---|---|---|
 | Interface que os alunos veem hoje | **Confirmado** (vídeos de alunos, 2026-11-11): a máquina criada no SinuTrain é **"TORNO CNC – 840D sl 4.95 SP3 HF2"**, com a interface **SINUMERIK Operate**, não a do 802D sl. O código G básico é o mesmo. | — |
+| CYCLE95 | `MID` e `FALX` em **raio**; desbaste em passes iguais (≤ MID) a partir do maior Ø do contorno; ao fim de cada passe segue o contorno até o nível anterior e afasta 45° (`_VRT`, padrão 1 mm); termina no ponto inicial; `DT`/`DAM` (quebra-cavaco) não mudam a peça. Fonte: lista de parâmetros e exemplos públicos (o manual da Siemens não pôde ser lido). | exercícios da apostila / professor |
+| CYCLE93 | `VARI`: 1 longitudinal externo com ponto inicial à **esquerda**, 3 interno à esquerda, 5 externo à **direita**, 7 interno à direita; pares = canal na face. `WIDG` = largura no **fundo**; `DIAG` em raio; `SPL` = canto de cima do lado do ponto inicial. Exemplos públicos usam VARI 5 para canal externo com início à direita, o que bate. | professor / manual |
+| CYCLE97 | `TDEP` em raio (exemplo público: M42×2 com TDEP 1,23); desbaste constante `TDEP·k/NRC`, seção constante `TDEP·√(k/NRC)`; a saída `ROP` é inclinada até a crista; `IANG` desloca o início em Z pelo flanco. Rosca à direita com M4 avançando para a placa (M3 = à esquerda). | professor |
 | Preset e zero da peça | Ferramentas já vêm medidas (corretores preenchidos), como no SinuTrain. Zero da peça na face, em **G54**, definido por uma tela de "medir peça" em JOG. | professor da disciplina (pergunta 9) |
 | Rotação | **Confirmado** (vídeo de aluno, 2026-11-11): `G96` no cabeçalho e `S200 M4` (Vc = 200 m/min, sentido M4), sem `LIMS`. Os exemplos também mostram `G97` pela fórmula do adesivo; os dois funcionam. | — |
 | Manivela | Uma manivela eletrônica, selecionada pelo painel (X/Z, ×1/×10/×100). As duas manivelas da porta ficam fora por enquanto. | Pergunta 8 |

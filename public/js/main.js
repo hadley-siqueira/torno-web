@@ -589,10 +589,27 @@ function setStatus(s) {
   if (s !== 'run') ui.turbo = false;
 }
 
-function prepare() {
+// Contornos do CYCLE95 chamados pelo nome (CYCLE95("CONT1", ...)): programas salvos do aluno
+// com esse nome (CONT1, CONT1.SPF ou CONT1.MPF). Buscados a cada início, só os citados.
+async function loadSubprograms(code) {
+  const names = new Set([...code.matchAll(/CYCLE95\s*\(\s*"([^":]+)"/gi)].map((m) => m[1].trim().toUpperCase()));
+  const subs = {};
+  for (const name of names) {
+    const p = app.mine.find((q) => q.name.toUpperCase().replace(/\.(SPF|MPF)$/, '') === name);
+    if (!p) continue;
+    try {
+      subs[name] = (await api('GET', `/api/programs/${p.id}`)).code;
+    } catch {
+      /* sem acesso: o interpretador dá o alarme de contorno não encontrado */
+    }
+  }
+  return subs;
+}
+
+function prepare(subprograms = {}) {
   clearMessages();
   lineMarks = new Map();
-  const res = parseProgram(ta.value, { home: ui.home, dialect: app.settings.dialect || 'sinumerik', turret: app.turret });
+  const res = parseProgram(ta.value, { home: ui.home, dialect: app.settings.dialect || 'sinumerik', turret: app.turret, subprograms });
   ui.result = res;
   ui.lines = ta.value.split('\n');
 
@@ -643,12 +660,13 @@ function resetScene() {
   highlightLine(-1);
 }
 
-function cycleStart(turbo = false) {
+async function cycleStart(turbo = false) {
   if (sim.status === 'run') {
     if (turbo) ui.turbo = true;
     return;
   }
   if (sim.status !== 'hold') {
+    const subs = /CYCLE95\s*\(\s*"[^":]+"/i.test(ta.value) ? await loadSubprograms(ta.value) : {};
     // reset / fim / alarme -> reinicia o programa.
     // WORKPIECE no programa define a peça bruta (como no SinuTrain): aplica se mudou.
     const wp = stockFromProgram(ta.value);
@@ -657,7 +675,7 @@ function cycleStart(turbo = false) {
       stockFromHeaderInputs(ta.value, false);
       if (!applyStock()) return;
     }
-    prepare();
+    prepare(subs);
     if (changed) announceWorkpiece(wp);
     resetScene();
   }

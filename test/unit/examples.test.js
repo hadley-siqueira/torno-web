@@ -92,6 +92,20 @@ const DIMENSIONS = {
     near(partDiameterAt(p, -0.5).bore, 17, 'chanfro do furo');
     assert.equal(partDiameterAt(p, -20).bore, 0, 'furo não passa de Z-15');
   },
+  '08_ciclos_sinumerik.mpf': ({ parts, stock }) => {
+    const p = parts[0];
+    near(partLength(p), 60, 'comprimento', 0.15);
+    near(partDiameterAt(p, -0.2).d, 17.4, 'chanfro de entrada da rosca');
+    near(partDiameterAt(p, -6).d, 18.16, 'núcleo da rosca M20x1,5 (CYCLE97)');
+    near(partDiameterAt(p, -13.5).d, 17, 'canal 3 x D17 (CYCLE93)');
+    near(partDiameterAt(p, -22.5).d, 28, 'meio do cone D26/D30 (CYCLE95)');
+    near(partDiameterAt(p, -35).d, 30, 'D30');
+    near(partDiameterAt(p, -42).d, 38, 'raio R5 em Z-42 (G3 CR=5 no contorno)');
+    near(partDiameterAt(p, -45.5).d, 43, 'chanfro CHR=1');
+    near(partDiameterAt(p, -55).d, 44, 'D44');
+    assert.equal(p.threads.length, 1, 'a peça leva a rosca (hélice na malha 3D)');
+    assert.equal(stock.threads.length, 1);
+  },
 };
 
 for (const [name, check] of Object.entries(DIMENSIONS)) {

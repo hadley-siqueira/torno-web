@@ -10,6 +10,10 @@
 //  - Mensagens saem como { code, params }; o texto vem de shared/i18n.js (PT/EN).
 
 import { getTool, withEdge, findToolByName, DEFAULT_TURRET } from './tools.js';
+import { GCodeAlarm, arcPolyline, fmt } from './geometry.js';
+import { CYCLES, findLabels, parseCallArgs, stripLabel } from './cycles.js';
+
+export { GCodeAlarm };
 
 export const DEFAULTS = {
   home: { x: 150, z: 100 }, // X em diâmetro
@@ -21,23 +25,14 @@ export const DEFAULTS = {
   defaultTool: 1,
   dialect: 'sinumerik', // 'sinumerik' | 'fanuc' (decide o significado de G70/G71)
   turret: DEFAULT_TURRET, // ferramentas montadas: { posição: ferramenta } (ver buildTurret)
+  subprograms: {}, // contornos do CYCLE95 em outro programa: { NOME: código }
+  maxJumps: 10000, // GOTOF/GOTOB: limite contra laço infinito
 };
 
 // Chanfro/arredondamento e elementos de contorno do Sinumerik: ainda não executados
 const CONTOUR_WORDS = new Set(['CHF', 'CHR', 'RND', 'RNDM', 'ANG', 'FRC', 'FRCM']);
 
 const IGNORED_G = new Set([9, 17, 18, 19, 40, 53, 54, 55, 56, 57, 58, 59, 60, 64, 80, 500]);
-const TWO_PI = Math.PI * 2;
-
-const fmt = (v) => Number(v.toFixed(3));
-
-export class GCodeAlarm extends Error {
-  constructor(code, params = {}) {
-    super(code);
-    this.code = code;
-    this.params = params;
-  }
-}
 
 export function parseProgram(text, options = {}) {
   const opt = { ...DEFAULTS, ...options, home: { ...DEFAULTS.home, ...(options.home || {}) } };
@@ -135,7 +130,8 @@ export function parseProgram(text, options = {}) {
   };
 
   // Gera um evento de movimento a partir de uma polilinha [[z, r], ...]
-  const motionEvent = (line, kind, poly) => {
+  // thread (rosca): { lead, phase, zRef } – a malha 3D desenha a hélice com isso
+  const motionEvent = (line, kind, poly, thread = null) => {
     let len = 0;
     for (let i = 1; i < poly.length; i++) len += Math.hypot(poly[i][0] - poly[i - 1][0], poly[i][1] - poly[i - 1][1]);
     if (len < 1e-9) return;
@@ -181,60 +177,38 @@ export function parseProgram(text, options = {}) {
       pts.push([z1, r1, t, rpmAt(r1)]);
     }
     stats.feedLength += len;
-    push({ line, type: kind === 'thread' ? 'thread' : 'feed', pts, duration: t });
+    const ev = { line, type: kind === 'thread' ? 'thread' : 'feed', pts, duration: t };
+    if (kind === 'thread') {
+      const zRef = thread?.zRef ?? poly[0][0];
+      // hélice à direita com M4 avançando para a placa (padrão da escola); M3 inverte
+      const hand = (st.spindle === 3 ? -1 : 1) * (poly[poly.length - 1][0] < poly[0][0] ? 1 : -1);
+      ev.thread = { lead: st.F, phase: thread?.phase ?? 0, zRef, hand };
+    }
+    push(ev);
   };
 
-  const arcPoly = (z0, r0, z1, r1, cw, center, radius) => {
-    let cz;
-    let cr;
-    if (center) {
-      [cz, cr] = center;
-      const ra = Math.hypot(z0 - cz, r0 - cr);
-      const rb = Math.hypot(z1 - cz, r1 - cr);
-      if (Math.abs(ra - rb) > 0.05) {
-        throw new GCodeAlarm('E_ARC_END', { diff: fmt(Math.abs(ra - rb)) });
+  // Movimentos gerados por um ciclo (ver cycles.js): rápido, avanço, rosca e espera
+  const runMoves = (line, moves) => {
+    const saved = { F: st.F, motion: st.motion };
+    for (const mo of moves) {
+      if (mo.type === 'dwell') {
+        push({ line, type: 'dwell', duration: mo.secs });
+        continue;
       }
-    } else {
-      const R = Math.abs(radius);
-      const dz = z1 - z0;
-      const dr = r1 - r0;
-      const d = Math.hypot(dz, dr);
-      if (d < 1e-9) throw new GCodeAlarm('E_ARC_SAME_POINT');
-      if (d > 2 * R + 1e-3) throw new GCodeAlarm('E_ARC_RADIUS_SMALL', { r: R, d: fmt(d) });
-      const h = Math.sqrt(Math.max(0, R * R - (d * d) / 4));
-      const mz = (z0 + z1) / 2;
-      const mr = (r0 + r1) / 2;
-      const nz = -dr / d;
-      const nr = dz / d;
-      const cands = [
-        [mz + nz * h, mr + nr * h],
-        [mz - nz * h, mr - nr * h],
-      ];
-      const wantLarge = radius < 0;
-      let chosen = cands[0];
-      for (const c of cands) {
-        const sw = sweep(z0, r0, z1, r1, c[0], c[1], cw);
-        if (wantLarge ? sw > Math.PI - 1e-9 : sw <= Math.PI + 1e-9) {
-          chosen = c;
-          break;
-        }
-      }
-      [cz, cr] = chosen;
+      if (mo.F !== undefined) st.F = mo.F;
+      motionEvent(line, mo.type, mo.pts, mo.thread);
+      const last = mo.pts[mo.pts.length - 1];
+      st.z = last[0];
+      st.r = last[1];
     }
-
-    const R = Math.hypot(z0 - cz, r0 - cr);
-    const a0 = Math.atan2(r0 - cr, z0 - cz);
-    const sw = sweep(z0, r0, z1, r1, cz, cr, cw);
-    const stepAng = Math.min((2 * Math.PI) / 180, R > 0 ? 0.5 / R : 1);
-    const n = Math.max(2, Math.ceil(sw / stepAng));
-    const poly = [];
-    for (let i = 0; i <= n; i++) {
-      const a = a0 + (cw ? -1 : 1) * (sw * i) / n;
-      poly.push([cz + R * Math.cos(a), cr + R * Math.sin(a)]);
-    }
-    poly[poly.length - 1] = [z1, r1];
-    return poly;
+    // as funções modais de antes da chamada continuam valendo depois
+    st.F = saved.F;
+    st.motion = saved.motion;
   };
+
+  const arcPoly = arcPolyline;
+  const labels = findLabels(lines);
+  let jumps = 0;
 
   for (let li = 0; li < lines.length && !alarm && !ended; li++) {
     const raw = lines[li];
@@ -249,6 +223,32 @@ export function parseProgram(text, options = {}) {
       push({ line: li, type: 'state', duration: 0 });
       continue;
     }
+    // Ciclos: lidos antes de remover "( ... )" (comentário Fanuc), como o WORKPIECE
+    const nc = stripLabel(noComment).trim();
+    const ncUpper = nc.toUpperCase();
+    // ---- Ciclos CYCLE93/95/97 ----
+    const cy = ncUpper.match(/^(?:N\d+\s*)?(CYCLE9[357])\s*\((.*)\)\s*$/);
+    if (cy) {
+      stats.blocks++;
+      try {
+        if (!st.spindle) throw new GCodeAlarm('E_SPINDLE_STOPPED');
+        if (cy[1] === 'CYCLE97' && st.css) warn(li, 'W_THREAD_CSS');
+        const args = parseCallArgs(nc.slice(nc.indexOf('(') + 1, nc.lastIndexOf(')')), cy[1]);
+        const ctx = {
+          lines, labels, subprograms: opt.subprograms, cur: [st.z, st.r], F: st.F, diam: st.diam,
+          tool: withEdge(getTool(st.tool, opt.turret), st.D),
+        };
+        const { moves, warnings: w } = CYCLES[cy[1]](args, ctx);
+        for (const x of w) warn(x.line ?? li, x.code, x.params);
+        runMoves(li, moves);
+        if (!events.length || events[events.length - 1].line !== li) push({ line: li, type: 'state', duration: 0 });
+      } catch (e) {
+        if (!(e instanceof GCodeAlarm)) throw e;
+        alarm = { line: e.line ?? li, code: e.code, params: e.params };
+      }
+      continue;
+    }
+
     let src = raw
       .replace(/\([^)]*\)/g, ' ')
       .replace(/;.*$/, '')
@@ -256,9 +256,31 @@ export function parseProgram(text, options = {}) {
     if (!src || src === '%') continue;
     if (/^O\d+/i.test(src) || /^:\d+/.test(src)) continue; // número de programa Fanuc
     if (src.startsWith('/')) src = src.slice(1); // supressão de bloco: executa sempre no MVP
+    src = stripLabel(src).trim(); // rótulo "INICIO:" (marca de desvio/contorno)
+    if (!src || /^N\d+$/i.test(src)) continue;
 
     const upper = src.toUpperCase();
-    if (/\b(CYCLE\d+|MCALL|REPEAT|GOTO[FB]?|CALL|IF|WHILE|DEF|R\d+\s*=)/.test(upper)) {
+
+    // ---- Desvios GOTOF/GOTOB/GOTO rótulo ----
+    const go = upper.match(/^(?:N\d+\s*)?GOTO([FB]?)\s+([A-Z_][A-Z0-9_]*)\s*$/);
+    if (go) {
+      const target = labels[go[2]];
+      const okDir = target !== undefined && (go[1] === 'F' ? target > li : go[1] === 'B' ? target < li : true);
+      if (!okDir) {
+        alarm = { line: li, code: 'E_LABEL_NOT_FOUND', params: { name: go[2] } };
+        break;
+      }
+      stats.blocks++;
+      push({ line: li, type: 'state', duration: 0 });
+      if (++jumps > opt.maxJumps) {
+        alarm = { line: li, code: 'E_TOO_LONG', params: {} };
+        break;
+      }
+      li = target - 1;
+      continue;
+    }
+
+    if (/\b(CYCLE\d+|MCALL|REPEAT|CALL|IF|WHILE|DEF|R\d+\s*=)/.test(upper)) {
       warn(li, 'W_UNSUPPORTED_BLOCK');
       push({ line: li, type: 'state', duration: 0 });
       continue;
@@ -450,7 +472,7 @@ export function parseProgram(text, options = {}) {
           else if (mo === 1) motionEvent(li, 'feed', [[st.z, st.r], [z1, r1]]);
           else if (mo === 33) {
             if (st.css) warn(li, 'W_THREAD_CSS');
-            motionEvent(li, 'thread', [[st.z, st.r], [z1, r1]]);
+            motionEvent(li, 'thread', [[st.z, st.r], [z1, r1]], { phase: val.SF || 0 });
           } else if (mo === 2 || mo === 3) {
             let poly;
             const radius = 'CR' in val ? val.CR : 'R' in val ? val.R : null;
@@ -571,15 +593,6 @@ export function stockFromProgram(code) {
   }
   const h = stockFromHeader(code);
   return h && { ...h, source: 'header' };
-}
-
-function sweep(z0, r0, z1, r1, cz, cr, cw) {
-  const a0 = Math.atan2(r0 - cr, z0 - cz);
-  const a1 = Math.atan2(r1 - cr, z1 - cz);
-  let s = cw ? a0 - a1 : a1 - a0;
-  s = ((s % TWO_PI) + TWO_PI) % TWO_PI;
-  if (s < 1e-9) s = TWO_PI;
-  return s;
 }
 
 /**

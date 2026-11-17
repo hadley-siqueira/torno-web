@@ -85,6 +85,7 @@ o servidor cuida de login, sessões, banco de dados e programas dos alunos.
 | Modelo da peça | `shared/stock-model.js` | Perfis externo/interno, remoção de material e colisões (sem 3D) |
 | Motor da simulação | `shared/simulator.js` | Executa os eventos no tempo sobre o modelo da peça (sem interface) |
 | Ferramentas | `shared/tools.js` | Magazine (SinuTrain), montagens prontas e geometria das pastilhas |
+| Ciclos | `shared/cycles.js`, `shared/geometry.js` | CYCLE93/95/97, contorno com rótulos, chanfros e raios de canto |
 | Aparência | `shared/appearance.js` | Materiais do tarugo e posições da torre (só estética) |
 | Idiomas | `shared/i18n.js` | Textos PT/EN da interface e das mensagens |
 | Medição | `shared/measure.js` | Faces do perfil e passo das réguas (testado no Node) |
@@ -136,6 +137,11 @@ e T16 rosca interna. O programa aceita o número ou o nome: `T="ROUGHING_T80 A"`
 A torre pode ficar **atrás da linha de centro** (padrão, como na máquina da escola), em cima ou na
 frente; as vistas 2D mostram sempre X+ para cima. O **material do tarugo** (aço, inox, alumínio,
 latão, cobre, bronze, ferro fundido, nylon, POM, PTFE) muda só as cores.
+
+Ciclos do 802D sl: **CYCLE95** (desbaste/acabamento de contorno, com o contorno entre rótulos
+`"INICIO:FIM"` no próprio programa ou num programa salvo, ex. `"CONT1"`), **CYCLE93** (canal) e
+**CYCLE97** (rosca, com a hélice desenhada na peça). Também `GOTOF`/`GOTOB` com rótulos e, dentro do
+contorno, `CHR=`/`CHF=`/`RND=` e `ANG=`. Exemplo completo em `programs/08_ciclos_sinumerik.mpf`.
 
 O Ø externo da peça bruta sugere as bitolas em polegadas (1", 1 1/8", 2", 3 1/4", 3 5/8"…).
 

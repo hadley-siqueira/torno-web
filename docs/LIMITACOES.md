@@ -10,7 +10,10 @@ O planejamento geral está em [PLANO.md](PLANO.md).
 
 | Limitação | Efeito para o aluno | Caminho sugerido |
 |---|---|---|
-| **Sem ciclos** (CYCLE93/94/95/96/97/98, CYCLE81–83; G71/G70/G72/G75/G76/G92 Fanuc) | O bloco é ignorado com aviso; o desbaste precisa ser escrito passe a passe | Expandir cada ciclo em movimentos G0/G1 dentro do interpretador. Começar pelo CYCLE95 (ver PLANO, Etapa 1) |
+| **Ciclos que faltam** (CYCLE94/96/98, CYCLE81–83; G71/G70/G72/G75/G76/G92 Fanuc). Já existem CYCLE93, CYCLE95 e CYCLE97 | O bloco é ignorado com aviso | Expandir cada ciclo em movimentos no interpretador (`shared/cycles.js`) |
+| **Detalhes dos ciclos sem confirmação** (ver PLANO > Suposições): unidades de MID/FALX/TDEP, tabela VARI do CYCLE93, trajetos de entrada/saída | A peça sai com as cotas certas; o caminho da ferramenta pode diferir do da máquina | Conferir com o manual do 802D sl e com programas do professor |
+| **CYCLE93 na face** (VARI 2/4/6/8) | Alarme: o modelo da peça é um perfil r(z), não guarda um canal na face | Modelo com face própria |
+| **CYCLE95**: sem compensação de raio da ponta; DT/DAM (quebra-cavaco) ignorados; contorno precisa ser uma "função" (sem voltar sobre si mesmo) | Raios e cones sem o erro do raio da ponta | G41/G42 |
 | **Sem subprogramas, parâmetros `R`, `GOTOF`/`GOTOB`, `IF`, `REPEAT`** | Bloco ignorado com aviso | Necessário para os ciclos (contorno em subprograma). Implementar avaliador de expressões e pilha de chamadas |
 | **G41/G42 ignorados** (sem compensação de raio da ponta) | Cones e raios saem com o perfil da ponta viva, sem o erro típico de quem esquece o G42 | Modelar raio de ponta na ferramenta e deslocar a trajetória (offset de contorno) |
 | **G54–G57 sem deslocamento real** | O zero da peça é sempre a face; esquecer o G54 não causa erro | Coordenadas de máquina + tabela de origens; ver Etapa 0 do PLANO |
@@ -26,7 +29,7 @@ O planejamento geral está em [PLANO.md](PLANO.md).
 
 | Limitação | Efeito | Caminho sugerido |
 |---|---|---|
-| **Rosca sem hélice** (pedido registrado no PLANO, Etapa 1) | A rosca aparece como um rebaixo até o fundo do filete | Desenhar a hélice só na malha (deslocamento de vértices por ângulo), sem mudar o modelo de remoção |
+| **Hélice da rosca só na imagem** | O filete aparece na malha 3D e no corte da vista lateral, mas medidas e réguas usam o fundo do filete (Ø do núcleo); a peça que cai no corte aparece lisa até parar (a "Peça pronta" mostra o filete) | Modelo de remoção por ângulo |
 | **Um único raio interno por posição Z** | Canal interno "atrás" de um ressalto, ou um anel fino que sobra sob a pastilha, não é representado; até 1 mm sob a pastilha interna vira cavaco | Trocar o perfil por uma lista de intervalos [rᵢ, rₑ] por posição Z |
 | **Ponta viva** (sem raio de ponta) | Cantos internos ficam vivos | Junto com G41/G42 |
 | **Furação só em X0** | Broca fora do centro gera alarme (correto para torno sem ferramenta acionada) | — |

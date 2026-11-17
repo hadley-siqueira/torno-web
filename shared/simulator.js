@@ -106,6 +106,18 @@ export class Simulator {
     this.dir = ev.state.spindle;
     this.hooks.eventStart?.(ev);
     switch (ev.type) {
+      case 'thread': {
+        // guarda a crista antes do passe (a malha 3D desenha a hélice; ver StockModel.addThread)
+        const tool = this.currentTool;
+        if (tool && ev.thread && ev.pts?.length) {
+          const zs = ev.pts.map((p) => p[0]);
+          this.stock?.addThread?.({
+            ...ev.thread, kind: tool.kind === 'internal' ? 'int' : 'ext', insert: tool.insert,
+            z0: Math.min(...zs), z1: Math.max(...zs),
+          });
+        }
+        break;
+      }
       case 'toolchange':
         this.tool = ev.state.tool;
         this.hooks.toolChange?.(this.tool, ev);

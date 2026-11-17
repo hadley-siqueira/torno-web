@@ -125,7 +125,7 @@ test('todo bloco gera ao menos um evento (realce da linha atual)', () => {
 test('avisos: G41/G42, ciclos não suportados e falta de M30', () => {
   const codes = (c) => parseProgram(c).warnings.map((w) => w.code);
   assert.ok(codes('G42\nM30').includes('W_TNRC'));
-  assert.ok(codes('CYCLE95("CONT", 2, 0.2)\nM30').includes('W_UNSUPPORTED_BLOCK'));
+  assert.ok(codes('S500 M3\nCYCLE81(10, 0, 2, -20)\nM30').includes('W_UNSUPPORTED_BLOCK'));
   assert.ok(codes('G0 X10').includes('W_NO_END'));
   assert.equal(parseProgram('G0 X10\nDIAMONX\nM30').alarm.code, 'E_UNKNOWN_KEYWORD');
 });

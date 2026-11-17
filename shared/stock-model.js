@@ -16,6 +16,8 @@ export const GONE = 0.02; // espessura abaixo da qual não há material
 /** Comprimento das castanhas da placa (o resto do trecho preso fica dentro da placa). */
 export const JAW_LENGTH = 30;
 
+const TWO_PI = Math.PI * 2;
+
 /**
  * diameter: Ø externo do bruto; bore: Ø interno (tubo; 0 = maciço);
  * length: comprimento em balanço (fora da placa, útil para usinar);
@@ -48,6 +50,7 @@ export class StockModel {
     this.r.fill(this.R0);
     this.ri.fill(this.Ri0);
     this.cut.fill(0);
+    this.threads = [];
     this.markDirty(0, this.N - 1);
   }
 
@@ -210,7 +213,7 @@ export class StockModel {
 
   /** Separa o trecho solto (amostras após idx) e devolve o perfil dele. */
   separate(idx) {
-    const part = { z: [], r: [], ri: [] };
+    const part = { z: [], r: [], ri: [], threads: this.exportThreads() };
     for (let i = idx + 1; i < this.N; i++) {
       part.z.push(this.zAt(i));
       part.r.push(this.r[i]);
@@ -219,6 +222,83 @@ export class StockModel {
     }
     this.markDirty(idx + 1, this.N - 1);
     return part;
+  }
+
+  // ---------- rosca (hélice) ----------
+  // O perfil r(z) guarda só o fundo do filete (o corte varre a volta inteira). Para desenhar
+  // a hélice, cada rosca guarda o raio de ANTES dela (a crista) e o formato da ponta da
+  // ferramenta; a superfície num ângulo θ é: fundo + formato da ponta na distância até o
+  // centro do sulco, limitada pela crista. Só aparência: medidas e testes usam o fundo.
+
+  /**
+   * Registra um passe de rosca antes de ele cortar: { lead (passo), hand (+1 à direita),
+   * phase (°), zRef, kind 'ext'|'int', insert (pastilha), z0, z1 (faixa do movimento) }.
+   * Passes da mesma rosca (mesmo passo, sentido e fase) entram no mesmo registro.
+   */
+  addThread({ lead, hand = 1, phase = 0, zRef = 0, kind = 'ext', insert, z0, z1 }) {
+    if (!(lead > 0) || !insert) return;
+    const c0 = (((zRef + (hand * lead * phase) / 360) % lead) + lead) % lead;
+    let rec = this.threads.find((t) => {
+      if (t.kind !== kind || t.hand !== hand || Math.abs(t.lead - lead) > 1e-6) return false;
+      const d = Math.abs(t.c0 - c0) % lead;
+      return Math.min(d, lead - d) < 0.05 * lead;
+    });
+    if (!rec) {
+      rec = { kind, lead, hand, c0, zLeft: this.zLeft, h: this.h, before: new Float32Array(this.N).fill(NaN), tooth: toothTable(insert, kind, lead, this.h / 2) };
+      this.threads.push(rec);
+    }
+    const [s0, s1] = insertSpan(insert);
+    const lo = this.index(Math.min(z0, z1) + s0);
+    const hi = this.index(Math.max(z0, z1) + s1);
+    const src = kind === 'ext' ? this.r : this.ri;
+    for (let i = lo; i <= hi; i++) if (Number.isNaN(rec.before[i])) rec.before[i] = src[i];
+  }
+
+  /** Há rosca registrada na amostra i? */
+  threadAt(i) {
+    for (const t of this.threads) if (!Number.isNaN(t.before[i])) return true;
+    return false;
+  }
+
+  /** Raios externo e interno na amostra i, no ângulo θ da peça (com a hélice). */
+  threadRadii(i, theta) {
+    let ro = this.r[i];
+    let ri = this.ri[i];
+    if (!this.threads.length) return [ro, ri];
+    const z = this.zAt(i);
+    let oCap = Infinity;
+    let iCap = -Infinity;
+    for (const t of this.threads) {
+      const b = t.before[i];
+      if (Number.isNaN(b)) continue;
+      const c = t.c0 + (t.hand * t.lead * theta) / TWO_PI;
+      let dz = (((z - c) % t.lead) + t.lead) % t.lead;
+      if (dz > t.lead / 2) dz -= t.lead;
+      const off = toothAt(t.tooth, dz);
+      if (t.kind === 'ext') oCap = Math.min(oCap, Math.min(b, this.r[i] + off));
+      else iCap = Math.max(iCap, Math.max(b, this.ri[i] + off));
+    }
+    if (oCap < Infinity) ro = Math.max(ro, oCap);
+    if (iCap > -Infinity) ri = Math.min(ri, iCap);
+    return [ro, Math.min(ri, ro)];
+  }
+
+  /** Cópia das roscas para a peça separada (o índice das amostras muda; vale o z). */
+  exportThreads() {
+    return this.threads.map((t) => ({ ...t, before: t.before.slice() }));
+  }
+
+  /** Recebe roscas de outra peça (ex.: a peça separada no corte), convertendo pelo z. */
+  importThreads(list = []) {
+    this.threads = list.map((t) => {
+      const before = new Float32Array(this.N).fill(NaN);
+      for (let i = 0; i < this.N; i++) {
+        const k = Math.round((this.zAt(i) - t.zLeft) / t.h);
+        if (k >= 0 && k < t.before.length) before[i] = t.before[k];
+      }
+      return { ...t, before, zLeft: this.zLeft, h: this.h };
+    });
+    this.markDirty(0, this.N - 1);
   }
 
   // ---------- consultas (testes e medição) ----------
@@ -242,4 +322,31 @@ export class StockModel {
     const i = this.index(z);
     return this.r[i] - this.ri[i] >= GONE;
   }
+}
+
+// Formato da ponta da ferramenta em volta do centro do sulco: quanto o raio sobe (externa)
+// ou desce (interna) a dz da ponta. Fora da pastilha: ±Infinity (não corta). Amostrado
+// em [−passo, passo] para somar os sulcos vizinhos quando a ponta é mais larga que o passo.
+function toothTable(insert, kind, lead, step) {
+  const n = Math.ceil((2 * lead) / step) + 1;
+  const vals = new Float32Array(n);
+  for (let k = 0; k < n; k++) {
+    const dz = -lead + k * step;
+    const b = kind === 'ext' ? lowerBoundary(insert, dz) : upperBoundary(insert, dz);
+    vals[k] = b === null ? (kind === 'ext' ? Infinity : -Infinity) : b;
+  }
+  return { vals, step, lead, ext: kind === 'ext' };
+}
+
+function toothAt(t, dz) {
+  const at = (d) => {
+    if (d < -t.lead || d > t.lead) return t.ext ? Infinity : -Infinity;
+    const k = Math.round((d + t.lead) / t.step);
+    return t.vals[Math.max(0, Math.min(t.vals.length - 1, k))];
+  };
+  // o sulco mais próximo e os vizinhos (ponta mais larga que o passo)
+  const a = at(dz);
+  const b = at(dz - t.lead);
+  const c = at(dz + t.lead);
+  return t.ext ? Math.min(a, b, c) : Math.max(a, b, c);
 }

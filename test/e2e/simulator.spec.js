@@ -257,3 +257,14 @@ N170 M2`);
   await expect(msgs).toContainText('Avanço F0.02 abaixo do usual para T1');
   await expect(msgs).toContainText('Peça separada');
 });
+
+test('CYCLE95 com contorno salvo em outro programa (CONT1.SPF)', async ({ page }) => {
+  page.on('dialog', (d) => d.accept(d.type() === 'prompt' ? 'CONT1.SPF' : undefined));
+  await setCode(page, 'G1 X20 Z0\nZ-10\nX30\nZ-20\nX52\nM17\n');
+  await page.click('#btnSaveAs');
+  await expect(page.locator('#messages')).toContainText('Salvo como CONT1.SPF');
+  await page.click('#btnReset');
+  await setCode(page, 'G18 G90 G95 DIAMON\nT1 D1\nG96 S180 LIMS=2500 M4\nG0 X54 Z3\nCYCLE95("CONT1", 2, 0.1, 0.2, , 0.25, 0.15, 0.1, 9, , , 1)\nG0 X150 Z100\nM30\n');
+  await runToEnd(page);
+  await expect(status(page)).toHaveText('FIM');
+});
