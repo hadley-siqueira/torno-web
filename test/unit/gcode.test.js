@@ -41,7 +41,7 @@ test('G96 limita rpm por LIMS', () => {
 test('alarmes: F ausente, fuso parado, ferramenta inexistente, arco inválido', () => {
   assert.equal(parseProgram('S100 M3\nG1 X10').alarm.code, 'E_NO_FEED');
   assert.equal(parseProgram('G95 F0.1\nG1 X10').alarm.code, 'E_SPINDLE_STOPPED');
-  assert.deepEqual(parseProgram('T9').alarm, { line: 0, code: 'E_TOOL_MISSING', params: { t: 9 } });
+  assert.deepEqual(parseProgram('T20').alarm, { line: 0, code: 'E_TOOL_MISSING', params: { t: 20 } });
   assert.equal(parseProgram('S100 M3\nG0 X0 Z0\nG2 X40 Z0 CR=5 F.1').alarm.code, 'E_ARC_RADIUS_SMALL');
   const syn = parseProgram('G0 X10 @').alarm;
   assert.equal(syn.line, 0);
@@ -66,6 +66,13 @@ test('dialeto decide G70/G71; torre configurável', async () => {
   assert.equal(parseProgram('T2\nM30', { turret }).alarm.code, 'E_TOOL_MISSING', 'posição vazia');
   const ev = parseProgram('T3\nM30', { turret }).events[0];
   assert.deepEqual(ev.params, { t: 3, type: 'drill_10' });
+});
+
+test('T="nome" do SinuTrain escolhe a posição do magazine', () => {
+  const ev = (code) => parseProgram(code).events.filter((e) => e.type === 'toolchange').map((e) => e.params.t);
+  assert.deepEqual(ev('T="FINISHING_T35 A" D1\nT="plunge_cutter_3  a"\nT="THREADING_1.5"\nM30'), [3, 5, 8]);
+  assert.deepEqual(ev('T="7"\nM30'), [7], 'número entre aspas');
+  assert.equal(parseProgram('T="NAO_EXISTE"\nM30').alarm.code, 'E_TOOL_MISSING');
 });
 
 test('mensagens traduzidas em PT e EN com nome da ferramenta', async () => {

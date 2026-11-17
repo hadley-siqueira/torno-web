@@ -237,10 +237,11 @@ dialog.wide { width: min(900px, calc(100vw - 32px)); }
 .code-view { width: 100%; min-height: 360px; background: #151b21; color: var(--text); border: 1px solid var(--line); border-radius: 4px; font: 13px/20px var(--mono); padding: 8px; resize: vertical; }
 .turret { display: grid; gap: 4px; padding-top: 4px; }
 .turret .small { font-size: 11px; margin: 0 0 4px; line-height: 1.35; }
-.settings label.turret-row { display: grid; grid-template-columns: 26px 1fr; align-items: center; gap: 6px; font-size: 12px; color: var(--text); }
+.settings label.turret-row { display: grid; grid-template-columns: 30px 1fr; align-items: center; gap: 6px; font-size: 12px; color: var(--text); }
 .turret-row b { color: var(--accent); }
 .turret-row select { padding: 3px 6px; font-size: 12px; }
 .turret .btn { justify-self: start; margin-top: 4px; }
+.settings label.turret-side { padding-top: 4px; }
 .btn.sm.on { border-color: var(--accent); background: #1f5f72; }
 
 /* ---------- quem desenha o 3D (placa de vídeo ou software) ---------- */

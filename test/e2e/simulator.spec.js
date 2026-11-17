@@ -81,9 +81,9 @@ test('idioma inglês fica salvo na conta', async ({ page }) => {
   await saved;
   await page.reload();
   await expect(page.locator('#btnSave')).toHaveText('Save');
-  await setCode(page, 'T9\nM30');
+  await setCode(page, 'T20\nM30');
   await runToEnd(page);
-  await expect(page.locator('#alarm')).toContainText('Turret station T9 is empty or does not exist');
+  await expect(page.locator('#alarm')).toContainText('Turret station T20 is empty or does not exist');
 });
 
 test('torre configurável: posição vazia dá alarme e restaurar volta ao padrão', async ({ page }) => {
@@ -94,7 +94,26 @@ test('torre configurável: posição vazia dá alarme e restaurar volta ao padr�
   await runToEnd(page);
   await expect(page.locator('#alarm')).toContainText('Posição T5 da torre está vazia');
   await page.click('#btnReset');
-  await page.getByRole('button', { name: 'Restaurar padrão' }).click();
+  await page.getByRole('button', { name: 'Magazine do SinuTrain (padrão)' }).click();
+  await runToEnd(page);
+  await expect(status(page)).toHaveText('FIM');
+});
+
+test('material do tarugo e posição da torre ficam salvos na conta', async ({ page }) => {
+  const saved = page.waitForResponse(
+    (r) => r.url().endsWith('/api/settings') && r.request().method() === 'PUT' && r.request().postData().includes('"turretSide":"top"')
+  );
+  await page.locator('summary', { hasText: 'Peça bruta' }).click();
+  await page.selectOption('#stockMaterial', 'copper');
+  await page.locator('summary', { hasText: 'Torre' }).click();
+  await expect(page.locator('#turretSide')).toHaveValue('rear');
+  await page.selectOption('#turretSide', 'top');
+  await saved;
+  await page.reload();
+  await expect(page.locator('#stockMaterial')).toHaveValue('copper');
+  await expect(page.locator('#turretSide')).toHaveValue('top');
+  // a vista lateral continua com as réguas funcionando
+  await page.click('[data-view="side"]');
   await runToEnd(page);
   await expect(status(page)).toHaveText('FIM');
 });

@@ -200,7 +200,9 @@ Ideias tiradas dos vídeos dos alunos (ver Contexto):
 - [x] **Aviso de avanço fora da faixa** (2026-11-11) da ferramenta (ex.: desbaste com `F0.02` → tempo enorme) e de
       **ferramenta errada para o movimento** (broca chamada e movida fora do centro, mesmo sem encostar).
 - [ ] **Override da simulação em %** (como o "Controle de progr."), além da velocidade atual.
-- [ ] **Nomes de ferramenta como no Operate** na barra de estado/torre (ex.: ROUGHING_T80 A), opcional.
+- [x] **Nomes de ferramenta como no Operate** (2026-11-17): o magazine padrão segue o do SinuTrain
+      (T1 ROUGHING_T80 A … T13 PLUNGE_CUTTER_3P), os nomes aparecem no painel da torre e o programa
+      aceita `T="ROUGHING_T80 A"`.
 - [ ] **Pastas por atividade** (Exercícios, Atividades avaliativas) nos programas do aluno.
 
 - [x] **Peça bruta como no SinuTrain** (2026-11-11): Ø externo, **Ø interno (tubo)**, **comprimento
@@ -465,7 +467,8 @@ programas reais do curso rodarem; depois os ciclos, a correção para o professo
 | 4 | Fanuc | **Só o suporte básico** que já existe. Nada de ciclos Fanuc por enquanto. | 2026-11-11 |
 | 5 | Distribuição | Roda em um **VPS**, alunos acessam pelo **navegador**. Arquitetura cliente-servidor: processamento pesado (interpretador, simulação, 3D) **no cliente**; o VPS cuida de login, sessão, banco de dados e armazenamento. Mover processamento para o VPS só se for necessário. **Login e trabalhos salvos por aluno.** | 2026-11-11 |
 | 16 | Contas | **Cadastro aberto**, sem tipo fixo de conta. Quem cria uma turma é o professor dela; convida alunos por **link/código**. O professor vê só as **entregas** (cópia do programa no momento da entrega). E-mail **opcional** (para recuperar senha no futuro). Administrador do sistema definido por configuração (`ADMIN_USERNAMES`). | 2026-11-11 |
-| 17 | Torre | **Configurável.** Não há padrão industrial de posição: quem prepara a máquina define e registra na folha de ferramentas. Os exemplos usam uma montagem padrão (T1 desbaste … T8 rosca interna). | 2026-11-11 |
+| 17 | Torre | **Configurável.** Não há padrão industrial de posição: quem prepara a máquina define e registra na folha de ferramentas. Os exemplos usam uma montagem padrão (T1 desbaste … T8 rosca interna). **Revisto em 2026-11-17:** o padrão passa a ser o **magazine do SinuTrain** (16 posições, ver "Magazine padrão"); a torre de 8 posições antiga continua como montagem pronta. | 2026-11-11 |
+| 21 | Aparência | Pedidos dos professores (2026-11-17): **material do tarugo** escolhido na peça bruta (aço carbono, inox, alumínio, latão, cobre, bronze, ferro fundido, nylon, POM, PTFE), **só estética** (cores da peça e dos cavacos); **posição da torre configurável**: atrás da linha de centro (padrão), em cima ou na frente. As vistas 2D olham sempre de frente para o plano da ferramenta, com X+ para cima. | 2026-11-17 |
 | 6 | Material de referência | Recebidos: visão geral, closes do painel de comando, da tela e do teclado, torre, contraponto e adesivo de fórmulas. **Fotos da tela ligada não são possíveis**: a máquina está com defeito. | 2026-11-11 |
 | 10 | Ferramentas da torre | Usar as ferramentas mais comuns em cursos técnicos (tabela "Torre padrão" abaixo). | 2026-11-11 |
 | 13 | SinuTrain | O professor usa o **SinuTrain v4.95**. Ele diz que usa "a 802D sl", mas não está claro se é a máquina criada no SinuTrain ou a máquina real. Ver suposição. **Confirmado por vídeos (2026-11-11): no SinuTrain a máquina é um 840D sl 4.95 com SINUMERIK Operate.** | 2026-11-11 |
@@ -536,7 +539,35 @@ repositório público; peça as fotos ao mantenedor do projeto):
 - O mangote do contraponto parece ser acionado pelo painel (`IN`/`OUT`) e pela unidade hidráulica.
 - O eixo C aparece no painel, mas provavelmente não é usado (torno sem ferramenta acionada).
 
-## Torre padrão (8 posições)
+## Magazine padrão (SinuTrain, desde 2026-11-17)
+
+Igual à tela "Seleção de ferramentas" (MAGAZIN1) do SinuTrain, nas mesmas posições. T14–T16 completam
+o que os exemplos usam e o SinuTrain não traz. Nomes valem no programa: `T="ROUGHING_T80 A"`.
+
+| T | Nome no SinuTrain | Ferramenta no simulador |
+|---|---|---|
+| T1 | ROUGHING_T80 A | Desbaste externo 80° |
+| T2 | DRILL_32 | Broca Ø32 |
+| T3 | FINISHING_T35 A | Acabamento externo 35° |
+| T4 | ROUGHING_T80 I | Desbaste interno 80° (furo mínimo Ø16) |
+| T5 | PLUNGE_CUTTER_3 A | Bedame 3 mm (D1 canto esquerdo, D2 direito) |
+| T6 | PLUNGE_CUTTER_3 I | Bedame interno 3 mm |
+| T7 | FINISHING_T35 I | Acabamento interno 35° (furo mínimo Ø20) |
+| T8 | THREADING_1.5 | Rosca externa 60° |
+| T9 | CUTTER_8 | Fresa Ø8, usada só no centro como broca de fundo plano (sem eixo C) |
+| T10 | DRILL_5 | Broca Ø5 |
+| T11 | BUTTON_TOOL_8 | Pastilha redonda Ø8 |
+| T12 | FINISHING_T35_R | Acabamento 35° invertido (corta no sentido +Z) — **suposição** |
+| T13 | PLUNGE_CUTTER_3P | Bedame de corte 3 mm com lâmina longa — **suposição** |
+| T14 | — | Broca de centro |
+| T15 | — | Broca Ø16 |
+| T16 | — | Rosca interna 60° |
+
+Raios de ponta e comprimentos (Compr. X/Z) do SinuTrain não são usados: a ponta programada é a
+referência e não há compensação de raio. O significado de "_R" e "3P" não está claro nas telas
+recebidas; confirmar com o professor.
+
+## Torre de 8 posições (padrão até 2026-11-16, hoje montagem pronta)
 
 Ferramentas mais comuns em cursos técnicos de torneamento CNC (decisão 10):
 

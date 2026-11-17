@@ -84,13 +84,15 @@ export class Rulers {
   }
 
   // ---------- conversões mundo (z, raio) <-> tela ----------
+  // (z, raio) são coordenadas do plano de trabalho, que gira com o lado da torre
   toScreen(z, y) {
-    this.v.set(z, y, 0).project(this.scene.camera);
+    this.scene.planeToWorld(z, y, this.v).project(this.scene.camera);
     return { x: ((this.v.x + 1) / 2) * this.w, y: ((1 - this.v.y) / 2) * this.h };
   }
 
   toWorld(px, py) {
     this.v.set((px / this.w) * 2 - 1, 1 - (py / this.h) * 2, 0).unproject(this.scene.camera);
+    this.scene.worldToPlane(this.v);
     return { z: this.v.x, y: this.v.y };
   }
 

@@ -4,28 +4,42 @@
 
 import * as THREE from 'three';
 import { StockModel, GONE } from '/shared/stock-model.js';
-
-const RAW = new THREE.Color(0x6d6458);
-const CUT = new THREE.Color(0xd8dce2);
-const INNER = new THREE.Color(0x8e98a6); // interior mais escuro: dá contraste aos furos
+import { materialOf } from '/shared/appearance.js';
 
 export class Stock extends StockModel {
   constructor(params) {
     super(params);
     this.seg = params.segments ?? 72;
+    this.colors = { raw: new THREE.Color(), cut: new THREE.Color(), inner: new THREE.Color(), section: new THREE.Color() };
     this.buildMesh();
     this.buildSection();
+    this.setMaterial(params.material);
+  }
+
+  /** Cores e brilho do material do tarugo (só aparência). */
+  setMaterial(key) {
+    const m = materialOf(key);
+    this.materialKey = key;
+    const c = this.colors;
+    c.raw.setHex(m.raw);
+    c.cut.setHex(m.cut);
+    c.inner.copy(c.cut).multiplyScalar(0.72); // interior mais escuro: dá contraste aos furos
+    c.section.copy(c.cut).multiplyScalar(0.8); // vista em corte: a cor do material, um pouco mais escura
+    this.material.metalness = m.metalness;
+    this.material.roughness = m.roughness;
+    this.section.material.color.copy(c.section);
+    this.updateGeometry(true);
   }
 
   /**
    * Cria uma peça (sem trecho preso na placa) a partir de um perfil
    * { z: [...], r: [...], ri: [...] }, como o devolvido por separate().
    */
-  static fromProfile(part, segments = 72) {
+  static fromProfile(part, segments = 72, material) {
     const n = part.z.length;
     const z0 = part.z[0];
     const z1 = part.z[n - 1];
-    const s = new Stock({ diameter: 2 * Math.max(...part.r), length: Math.max(z1 - z0, 0.1), faceZ: z1, clamp: 0, segments });
+    const s = new Stock({ diameter: 2 * Math.max(...part.r), length: Math.max(z1 - z0, 0.1), faceZ: z1, clamp: 0, segments, material });
     let j = 0;
     for (let i = 0; i < s.N; i++) {
       const z = s.zAt(i);
@@ -179,6 +193,7 @@ export class Stock extends StockModel {
     if (!range && !force) return false;
     this.renderProfiles();
     const { N, h, zz, ro, rin, r, ri, RV } = this;
+    const { raw: RAW, cut: CUT, inner: INNER } = this.colors;
     const solid = (i) => r[i] - ri[i] >= GONE;
 
     // Trecho a reescrever: o alterado + 2 vizinhos (normais) + trechos vazios

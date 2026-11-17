@@ -1,6 +1,6 @@
 ; PINO ROSCADO M20x1,5 - torneamento externo completo
 ; Bruto: D40 x 80 mm, face em Z1
-; Torre padrao: T1 desbaste 80, T2 acabamento 35, T3 bedame 3 mm, T4 rosca externa 60
+; Magazine padrao (SinuTrain): T1 desbaste 80, T3 acabamento 35, T5 bedame 3 mm, T8 rosca externa 60
 ; Peca final: 60 mm. Rosca M20x1,5 com canal de saida, cone e chanfros
 G18 G90 G95 DIAMON
 G54
@@ -40,8 +40,8 @@ G1 Z-27.9
 G1 X25
 G0 X150 Z100
 
-; ========== ACABAMENTO (T2) ==========
-T2 D1
+; ========== ACABAMENTO (T3) ==========
+T3 D1
 G96 S250 LIMS=3000 M3
 G0 X15 Z1
 G1 X20 Z-1.5 F0.1         ; chanfro 1,5 x 45
@@ -54,9 +54,9 @@ G1 Z-60
 G1 X41
 G0 X150 Z100
 
-; ========== CANAL DE SAIDA DA ROSCA (T3) ==========
+; ========== CANAL DE SAIDA DA ROSCA (T5) ==========
 ; bedame de 3 mm, referencia no canto esquerdo: ocupa de Z-28 a Z-25
-T3 D1
+T5 D1
 G97 S800 M3
 G0 X30 Z-28
 G1 X17 F0.05
@@ -64,10 +64,10 @@ G4 F0.3                   ; espera 0,3 s no fundo
 G0 X30
 G0 X150 Z100
 
-; ========== ROSCA M20 x 1,5 (T4) ==========
+; ========== ROSCA M20 x 1,5 (T8) ==========
 ; profundidade do filete: 0,92 mm no raio -> nucleo D18,16
 ; passes cada vez menores; o ultimo repete o diametro (passe de limpeza)
-T4 D1
+T8 D1
 G97 S600 M3
 G0 X22 Z5
 G0 X19.4
@@ -99,8 +99,8 @@ G33 Z-25.5 K1.5
 G0 X22
 G0 X150 Z100
 
-; ========== CORTE (T3) ==========
-T3 D1
+; ========== CORTE (T5) ==========
+T5 D1
 G97 S700 M3
 G0 X44 Z-63
 G1 X-1 F0.05              ; sangramento: separa a peca

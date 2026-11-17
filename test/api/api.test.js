@@ -115,8 +115,14 @@ test('configurações: só chaves e valores válidos', async () => {
   const tr = await c('PUT', '/api/settings', { turret: { 1: 'ext_finish_55', 2: '', 3: 'xxx' } });
   assert.equal(tr.body.turret[1], 'ext_finish_55');
   assert.equal(tr.body.turret[2], '');
-  assert.equal(tr.body.turret[3], 'groove_3');
-  assert.equal(tr.body.turret[8], 'thread_int_60');
+  assert.equal(tr.body.turret[3], 'ext_finish_35', 'tipo desconhecido volta ao padrão');
+  assert.equal(tr.body.turret[8], '', 'posição ausente fica vazia');
+  const ap = await c('PUT', '/api/settings', { material: 'brass', turretSide: 'top' });
+  assert.equal(ap.body.material, 'brass');
+  assert.equal(ap.body.turretSide, 'top');
+  const bad = await c('PUT', '/api/settings', { material: 'toString', turretSide: 'left' });
+  assert.equal(bad.body.material, 'brass', 'material desconhecido é ignorado');
+  assert.equal(bad.body.turretSide, 'top');
 });
 
 test('turmas: convite, entrega e privacidade', async () => {

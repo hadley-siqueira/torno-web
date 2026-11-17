@@ -5,10 +5,13 @@ import { runProgram } from '../helpers/run.js';
 import { parseProgram } from '../../shared/gcode.js';
 import { StockModel } from '../../shared/stock-model.js';
 import { Simulator, rpmFor } from '../../shared/simulator.js';
-import { buildTurret } from '../../shared/tools.js';
+import { buildTurret, TURRET_PRESETS } from '../../shared/tools.js';
+
+// testes de mecânica: montagem fixa de 8 posições (T6 broca Ø16, T7 barra de mandrilar)
+const TORRE8 = buildTurret(TURRET_PRESETS.torre8);
 
 const HEAD = 'G18 G90 G95 DIAMON\n';
-const alarmOf = (code) => runProgram(HEAD + code).alarms[0];
+const alarmOf = (code) => runProgram(HEAD + code, { turret: TORRE8 }).alarms[0];
 
 test('G0 dentro do material', () => {
   const a = alarmOf('T1 D1\nG97 S1000 M3\nG0 X40 Z2\nG0 Z-20\nM30');
@@ -38,7 +41,7 @@ test('alarme do interpretador chega pelo simulador', () => {
 
 test('M0 para e Cycle Start continua; tempo bate com o interpretador', () => {
   const parsed = parseProgram(HEAD + 'T1 D1\nG97 S1000 M3\nG0 X60 Z2\nM0\nG1 X55 F0.2\nM30');
-  const sim = new Simulator({ stock: new StockModel({ diameter: 50, length: 80, faceZ: 1 }), turret: buildTurret() });
+  const sim = new Simulator({ stock: new StockModel({ diameter: 50, length: 80, faceZ: 1 }), turret: TORRE8 });
   sim.load(parsed.events);
   assert.equal(sim.runToEnd().status, 'hold');
   assert.equal(sim.runToEnd().status, 'end');
@@ -50,7 +53,7 @@ test('bloco a bloco para a cada linha', () => {
   const stops = [];
   const sim = new Simulator({
     stock: new StockModel({ diameter: 50, length: 80, faceZ: 1 }),
-    turret: buildTurret(),
+    turret: TORRE8,
     hooks: { singleStop: (l) => stops.push(l) },
   });
   sim.single = true;
@@ -61,7 +64,7 @@ test('bloco a bloco para a cada linha', () => {
 
 test('avanço parcial move a ferramenta no meio do bloco', () => {
   const parsed = parseProgram(HEAD + 'G0 X60 Z10\nG94 F600\nG1 Z0\nM30'); // 10 mm a 600 mm/min = 1 s
-  const sim = new Simulator({ stock: new StockModel({ diameter: 50, length: 80, faceZ: 1 }), turret: buildTurret() });
+  const sim = new Simulator({ stock: new StockModel({ diameter: 50, length: 80, faceZ: 1 }), turret: TORRE8 });
   sim.load(parsed.events);
   sim.run();
   while (sim.idx < 3) sim.advance(0.001);

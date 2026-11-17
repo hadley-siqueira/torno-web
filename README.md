@@ -13,7 +13,8 @@ G-code, aperta **Cycle Start** e vê a ferramenta usinando a peça em 3D (Three.
 <img src="docs/img/bruto-e-torre.png" alt="Painéis da peça bruta (XA, XI, ZI, ZB, ZA) e da torre de 8 posições" width="300" align="right">
 
 **Peça bruta e torre configuráveis:** os mesmos campos do SinuTrain (XA, XI, ZI, ZB, ZA), com
-bitolas em polegadas; torre de 8 posições com a montagem padrão ou a da apostila do curso.
+bitolas em polegadas; magazine do SinuTrain como padrão, montagem da apostila ou torre de 8 posições; material do tarugo e
+posição da torre (atrás, em cima ou na frente) escolhíveis.
 O programa também pode definir a peça com `WORKPIECE(...)`, como no SinuTrain.
 
 <br clear="right">
@@ -83,7 +84,8 @@ o servidor cuida de login, sessões, banco de dados e programas dos alunos.
 | Interpretador | `shared/gcode.js` | G-code → eventos temporizados (roda no navegador e no Node) |
 | Modelo da peça | `shared/stock-model.js` | Perfis externo/interno, remoção de material e colisões (sem 3D) |
 | Motor da simulação | `shared/simulator.js` | Executa os eventos no tempo sobre o modelo da peça (sem interface) |
-| Ferramentas | `shared/tools.js` | Torre de 8 posições e geometria das pastilhas |
+| Ferramentas | `shared/tools.js` | Magazine (SinuTrain), montagens prontas e geometria das pastilhas |
+| Aparência | `shared/appearance.js` | Materiais do tarugo e posições da torre (só estética) |
 | Idiomas | `shared/i18n.js` | Textos PT/EN da interface e das mensagens |
 | Medição | `shared/measure.js` | Faces do perfil e passo das réguas (testado no Node) |
 | Réguas | `public/js/rulers.js` | Réguas graduadas e leitura de medidas na vista Lateral |
@@ -123,12 +125,17 @@ colisão com a placa, F ausente, arco inválido, ferramenta inexistente, erro de
 Avisos didáticos (não param o programa): avanço fora da faixa usual da ferramenta (ex.: `F0.02` no
 desbaste), broca andando em avanço fora do centro, e `CHF=`/`CHR=`/`RND=`/`ANG=` ainda não executados.
 
-Torre de 8 posições **configurável** (painel "Torre" no simulador): cada posição recebe uma ferramenta
-do catálogo – desbaste 80°, acabamento 55° e 35°, bedame 3 mm, rosca externa e interna 60°, broca de
-centro, brocas Ø6/10/12/16/20 e barra de mandrilar – ou fica vazia. Montagem padrão (usada nos exemplos):
-T1 desbaste 80°, T2 acabamento 35°, T3 bedame, T4 rosca externa, T5 broca de centro, T6 broca Ø16,
-T7 barra de mandrilar, T8 rosca interna. O botão **"Montagem da apostila"** monta a torre dos
-exercícios do professor: T1 desbaste, T2 bedame, T6 rosca externa, T8 acabamento.
+Torre/magazine **configurável** (painel "Torre" no simulador, 16 posições): cada posição recebe uma
+ferramenta do catálogo ou fica vazia. O padrão (usado nos exemplos) é o **magazine do SinuTrain**:
+T1 ROUGHING_T80 A, T2 DRILL_32, T3 FINISHING_T35 A, T4 ROUGHING_T80 I, T5 PLUNGE_CUTTER_3 A,
+T6 PLUNGE_CUTTER_3 I, T7 FINISHING_T35 I, T8 THREADING_1.5, T9 CUTTER_8, T10 DRILL_5,
+T11 BUTTON_TOOL_8, T12 FINISHING_T35_R, T13 PLUNGE_CUTTER_3P, mais T14 broca de centro, T15 broca Ø16
+e T16 rosca interna. O programa aceita o número ou o nome: `T="ROUGHING_T80 A"`. Montagens prontas:
+**apostila** (T1 desbaste, T2 bedame, T6 rosca externa, T8 acabamento) e a **torre de 8 posições** antiga.
+
+A torre pode ficar **atrás da linha de centro** (padrão, como na máquina da escola), em cima ou na
+frente; as vistas 2D mostram sempre X+ para cima. O **material do tarugo** (aço, inox, alumínio,
+latão, cobre, bronze, ferro fundido, nylon, POM, PTFE) muda só as cores.
 
 O Ø externo da peça bruta sugere as bitolas em polegadas (1", 1 1/8", 2", 3 1/4", 3 5/8"…).
 

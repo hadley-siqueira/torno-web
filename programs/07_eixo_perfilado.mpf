@@ -1,7 +1,7 @@
 ; EIXO PERFILADO - gola concava, rosca e furo de centro
 ; Bruto: D60 x 95 mm, face em Z1
-; Torre padrao: T1 desbaste, T2 acabamento 35 (perfil), T3 bedame, T4 rosca externa,
-;               T5 broca de centro, T6 broca D16, T7 barra de mandrilar
+; Magazine padrao (SinuTrain): T1 desbaste, T3 acabamento 35 (perfil), T5 bedame, T8 rosca externa,
+;               T14 broca de centro, T15 broca D16, T4 desbaste interno
 ; Peca final (75 mm): rosca M30x1,5 com canal, colar D36, gola concava (R22,1 e R18,722)
 ; ate o pescoco D26, cone D44/D50, corpo D56 com chanfro
 ; Os raios da gola: centro em Z-36; R22,1 liga D36(Z-22) a D26(Z-36) e
@@ -60,9 +60,9 @@ G1 Z-19.9
 G1 X33
 G0 X150 Z100
 
-; ========== DESBASTE DA GOLA POR COPIA DO PERFIL (T2) ==========
+; ========== DESBASTE DA GOLA POR COPIA DO PERFIL (T3) ==========
 ; o mesmo perfil deslocado em X: +8, +5, +2 e +0,5 no diametro
-T2 D1
+T3 D1
 G96 S220 LIMS=3000 M3
 G0 X44 Z-19
 G1 Z-22 F0.2
@@ -89,7 +89,7 @@ G2 X44.5 Z-52 CR=18.722
 G0 X54
 G0 X150 Z100
 
-; ========== ACABAMENTO DO PERFIL COMPLETO (T2) ==========
+; ========== ACABAMENTO DO PERFIL COMPLETO (T3) ==========
 G96 S260 LIMS=3500 M3
 G0 X25 Z1
 G1 X30 Z-1.5 F0.1         ; chanfro 1,5 x 45
@@ -105,8 +105,8 @@ G1 Z-75
 G1 X61
 G0 X150 Z100
 
-; ========== CANAL DE SAIDA DA ROSCA 4 x D27 (T3) ==========
-T3 D1
+; ========== CANAL DE SAIDA DA ROSCA 4 x D27 (T5) ==========
+T5 D1
 G97 S800 M3
 G0 X33 Z-20               ; Z-20 a Z-17
 G1 X27 F0.05
@@ -116,9 +116,9 @@ G1 X27
 G0 X33
 G0 X150 Z100
 
-; ========== ROSCA M30 x 1,5 (T4) ==========
+; ========== ROSCA M30 x 1,5 (T8) ==========
 ; nucleo: 30 - 2 x 0,92 = D28,16
-T4 D1
+T8 D1
 G97 S600 M3
 G0 X33 Z5
 G0 X29.4
@@ -150,22 +150,22 @@ G33 Z-17.5 K1.5
 G0 X33
 G0 X150 Z100
 
-; ========== FURO DE CENTRO E FURO D16 x 10 (T5, T6) ==========
-T5 D1
+; ========== FURO DE CENTRO E FURO D16 x 10 (T14, T15) ==========
+T14 D1
 G97 S1500 M3
 G0 X0 Z5
 G1 Z-4 F0.08
 G0 Z5
 G0 X150 Z100
-T6 D1
+T15 D1
 G97 S600 M3
 G0 X0 Z5
 G1 Z-14.8 F0.12           ; ponta da broca: furo cheio ate Z-10
 G0 Z5
 G0 X150 Z100
 
-; ========== CHANFRO DE ENTRADA DO FURO (T7) ==========
-T7 D1
+; ========== CHANFRO DE ENTRADA DO FURO (T4) ==========
+T4 D1
 G96 S150 LIMS=2000 M3
 G0 X20 Z1
 G1 X16 Z-1 F0.1           ; chanfro 1 x 45
@@ -173,8 +173,8 @@ G1 X14
 G0 Z5
 G0 X150 Z100
 
-; ========== CORTE (T3) ==========
-T3 D1
+; ========== CORTE (T5) ==========
+T5 D1
 G97 S700 M3
 G0 X64 Z-78
 G1 X-1 F0.05

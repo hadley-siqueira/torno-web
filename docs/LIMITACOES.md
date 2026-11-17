@@ -49,7 +49,10 @@ O planejamento geral está em [PLANO.md](PLANO.md).
   SINUMERIK Operate: duas janelas lado a lado, espaço de máquina, registro simultâneo com a máquina,
   ampliação por região. A medição na vista é feita pelas réguas da vista Lateral (Z, Ø externo/interno
   e distância entre dois pontos); ainda não há tabela de cotas nem medição de ângulos e raios.
-- A torre é um bloco que acompanha a ferramenta ativa; não gira na troca e não mostra as 8 ferramentas montadas.
+- A torre é um bloco que acompanha a ferramenta ativa; não gira na troca e não mostra as outras ferramentas montadas.
+- A posição da torre (atrás, em cima, na frente) e o material do tarugo são só aparência: o corte, os tempos e as cotas não mudam com o material.
+- `CUTTER_8` (fresa do SinuTrain) só trabalha no centro, como broca de fundo plano: não há eixo C nem ferramenta acionada.
+- `FINISHING_T35_R` e `PLUNGE_CUTTER_3P` foram interpretados (acabamento invertido e bedame de lâmina longa); um bedame frontal (canal na face) não é representável no modelo de perfil.
 - Ferramentas são silhuetas extrudadas (brocas e barras aparecem "achatadas").
 - Contraponto, porta, refrigeração e luzes da máquina não existem.
 - M8/M9 não têm efeito visível: não aparece o jato de fluido de corte (pedido registrado no PLANO, Etapa 1).

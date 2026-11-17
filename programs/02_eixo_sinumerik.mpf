@@ -37,7 +37,7 @@ G1 X34
 G0 X150 Z100
 
 ; ---------- ACABAMENTO ----------
-T2 D1
+T3 D1
 G96 S260 LIMS=3500 M3
 G0 X26 Z1
 G1 X30 Z-1 F0.1       ; chanfro 1x45
@@ -50,7 +50,7 @@ G1 X50
 G0 X150 Z100
 
 ; ---------- CANAL E CORTE ----------
-T3 D1
+T5 D1
 G97 S900 M3
 G0 X34 Z-18
 G1 X26 F0.05          ; canal D26 x 3

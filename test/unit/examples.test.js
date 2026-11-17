@@ -61,7 +61,7 @@ const DIMENSIONS = {
     near(partDiameterAt(p, -39).bore, 24, 'furo passante');
   },
   '06_peca_completa.mpf': ({ parts, toolChanges }) => {
-    assert.deepEqual([...new Set(toolChanges)].sort(), [2, 3, 4, 5, 6, 7, 8], 'usa todas as ferramentas (T1 já começa montada)');
+    assert.deepEqual([...new Set(toolChanges)].sort((a, b) => a - b), [3, 4, 5, 8, 14, 15, 16], 'usa todas as ferramentas da peça (T1 já começa montada)');
     const p = parts[0];
     near(partLength(p), 55, 'comprimento', 0.15);
     near(partDiameterAt(p, -10).d, 27.55, 'núcleo da rosca M30x2');

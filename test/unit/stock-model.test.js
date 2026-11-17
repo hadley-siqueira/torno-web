@@ -2,9 +2,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { StockModel } from '../../shared/stock-model.js';
-import { buildTurret } from '../../shared/tools.js';
+import { buildTurret, TURRET_PRESETS } from '../../shared/tools.js';
 
-const T = buildTurret(); // montagem padrão
+const T = buildTurret(TURRET_PRESETS.torre8); // montagem fixa de 8 posições
 const near = (a, b, eps, msg) => assert.ok(Math.abs(a - b) <= eps, `${msg ?? ''} esperado ${b}, obtido ${a}`);
 const stock = () => new StockModel({ diameter: 50, length: 80, faceZ: 1 });
 

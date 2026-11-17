@@ -9,7 +9,7 @@
 //  - Pontos dos eventos: [z, r, t, rpm], t = tempo acumulado (s) dentro do evento.
 //  - Mensagens saem como { code, params }; o texto vem de shared/i18n.js (PT/EN).
 
-import { getTool, withEdge, DEFAULT_TURRET } from './tools.js';
+import { getTool, withEdge, findToolByName, DEFAULT_TURRET } from './tools.js';
 
 export const DEFAULTS = {
   home: { x: 150, z: 100 }, // X em diâmetro
@@ -302,8 +302,10 @@ export function parseProgram(text, options = {}) {
       if (w === 'G') g.push(parseFloat(v));
       else if (w === 'M') m.push(parseFloat(v));
       else if (w === 'T' && v.startsWith('"')) {
+        // T="ROUGHING_T80 A": nome da ferramenta no SinuTrain; senão, o número dentro das aspas
+        const byName = findToolByName(v.replace(/"/g, ''), opt.turret);
         const num = parseInt(v.replace(/\D/g, ''), 10);
-        val.T = Number.isFinite(num) ? num : NaN;
+        val.T = byName ?? (Number.isFinite(num) ? num : NaN);
       } else val[w] = parseFloat(v);
     }
     const ignoredContour = Object.keys(val).filter((w) => CONTOUR_WORDS.has(w));

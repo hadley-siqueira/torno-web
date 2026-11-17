@@ -75,8 +75,8 @@ test('avisos didáticos: avanço alto e broca fora do centro', () => {
   assert.deepEqual(codes(p), ['W_FEED_HIGH']);
   // avanço em mm/min (G94) não é comparado
   assert.deepEqual(codes(parseProgram('G18 G90 G94\nT1 D1\nG97 S800 M4\nG0 X40 Z2\nG1 Z-10 F100\nM2')), []);
-  // broca (T6 na torre padrão) em avanço fora de X0
-  const d = parseProgram('G18 G90 G95\nT6 D1\nG97 S800 M3\nG0 X0 Z2\nG1 Z-10 F0.1\nG0 Z2\nG0 X80\nG1 Z-20\nM2');
+  // broca (T15 no magazine padrão) em avanço fora de X0
+  const d = parseProgram('G18 G90 G95\nT15 D1\nG97 S800 M3\nG0 X0 Z2\nG1 Z-10 F0.1\nG0 Z2\nG0 X80\nG1 Z-20\nM2');
   assert.deepEqual(codes(d), ['W_AXIAL_OFF_CENTER']);
   assert.equal(d.warnings[0].line, 7);
 });

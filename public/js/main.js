@@ -5,7 +5,8 @@ import { api, ApiError } from './api.js';
 import { applyI18n, guessLang, rememberLang } from './i18n-dom.js';
 import { parseProgram, stockFromProgram } from '/shared/gcode.js';
 import { t, formatMessage, apiErrorText, LANGS } from '/shared/i18n.js';
-import { TOOL_TYPES, TOOL_SLOTS, TURRET_DEFAULT, TURRET_PRESETS, buildTurret, sanitizeTurret, toolName } from '/shared/tools.js';
+import { TOOL_TYPES, TOOL_SLOTS, TURRET_DEFAULT, TURRET_PRESETS, buildTurret, sanitizeTurret, isLegacyDefault, toolName } from '/shared/tools.js';
+import { MATERIALS, DEFAULT_MATERIAL, TURRET_SIDES, DEFAULT_TURRET_SIDE, materialOf } from '/shared/appearance.js';
 import { Simulator } from '/shared/simulator.js';
 
 const $ = (id) => document.getElementById(id);
@@ -29,6 +30,8 @@ const app = {
   mine: [],
   turretCfg: { ...TURRET_DEFAULT },
   turret: buildTurret(TURRET_DEFAULT),
+  material: DEFAULT_MATERIAL,
+  turretSide: DEFAULT_TURRET_SIDE,
 };
 
 // Estado só da interface; o estado da máquina fica no Simulator (shared/simulator.js)
@@ -41,6 +44,7 @@ const ui = {
   alarmInfo: null,
 };
 
+// peça separada no corte (caindo): cor do material usinado, ver applyMaterial
 const partMaterial = new THREE.MeshStandardMaterial({ color: 0xd8dce2, metalness: 0.75, roughness: 0.32 });
 
 const sim = new Simulator({
@@ -138,6 +142,7 @@ function setLang(lang) {
   applyI18n(lang);
   setStatus(sim.status);
   renderToolList();
+  renderAppearance();
   renderProgramSelect();
   updateDocTitle();
   rerenderMessages();
@@ -400,7 +405,7 @@ function renderToolList() {
     tag.textContent = `T${n}`;
     const sel = document.createElement('select');
     sel.appendChild(new Option(tr('empty_station'), ''));
-    for (const [type, def] of Object.entries(TOOL_TYPES)) sel.appendChild(new Option(def.name[app.lang] || def.name.pt, type));
+    for (const [type, def] of Object.entries(TOOL_TYPES)) sel.appendChild(new Option(toolLabel(def), type));
     sel.value = app.turretCfg[n] || '';
     const tool = app.turret[n];
     if (tool) sel.title = tool.detail[app.lang] || tool.detail.pt;
@@ -408,19 +413,51 @@ function renderToolList() {
     row.append(tag, sel);
     box.appendChild(row);
   }
-  const reset = document.createElement('button');
-  reset.className = 'btn sm';
-  reset.textContent = tr('restore_default');
-  reset.onclick = () => applyTurret({ ...TURRET_DEFAULT });
-  const apostila = document.createElement('button');
-  apostila.className = 'btn sm';
-  apostila.textContent = tr('turret_apostila');
-  apostila.title = tr('turret_apostila_help');
-  apostila.onclick = () => applyTurret({ ...TURRET_PRESETS.apostila });
+  const presetBtn = (key, label, help) => {
+    const b = document.createElement('button');
+    b.className = 'btn sm';
+    b.textContent = tr(label);
+    b.title = tr(help);
+    b.onclick = () => applyTurret({ ...TURRET_PRESETS[key] });
+    return b;
+  };
   const row = document.createElement('div');
   row.className = 'turret-presets';
-  row.append(reset, apostila);
+  row.append(
+    presetBtn('sinutrain', 'turret_sinutrain', 'turret_sinutrain_help'),
+    presetBtn('apostila', 'turret_apostila', 'turret_apostila_help'),
+    presetBtn('torre8', 'turret_8', 'turret_8_help')
+  );
   box.appendChild(row);
+}
+
+// Nome no catálogo + nome no SinuTrain, ex.: "Desbaste externo 80° · ROUGHING_T80 A"
+const toolLabel = (def) => (def.name[app.lang] || def.name.pt) + (def.stName ? ` · ${def.stName}` : '');
+
+// ---------------------------------------------------------------- aparência
+function renderAppearance() {
+  const mat = $('stockMaterial');
+  mat.replaceChildren(...Object.entries(MATERIALS).map(([k, m]) => new Option(m.name[app.lang] || m.name.pt, k)));
+  mat.value = app.material;
+  const side = $('turretSide');
+  side.replaceChildren(...TURRET_SIDES.map((k) => new Option(tr(`side_${k}`), k)));
+  side.value = app.turretSide;
+}
+
+function applyMaterial(key, save = true) {
+  app.material = MATERIALS[key] ? key : DEFAULT_MATERIAL;
+  const m = materialOf(app.material);
+  scene.setMaterial(app.material);
+  partMaterial.color.setHex(m.cut);
+  partMaterial.metalness = m.metalness;
+  partMaterial.roughness = m.roughness;
+  if (save) saveSettings({ material: app.material });
+}
+
+function applyTurretSide(side, save = true) {
+  app.turretSide = TURRET_SIDES.includes(side) ? side : DEFAULT_TURRET_SIDE;
+  scene.setTurretSide(app.turretSide);
+  if (save) saveSettings({ turretSide: app.turretSide });
 }
 
 function applyTurret(cfg, save = true) {
@@ -782,6 +819,8 @@ $('langSelect').onchange = (e) => {
   saveSettings({ lang: app.lang });
 };
 $('dialectSelect').onchange = (e) => saveSettings({ dialect: e.target.value });
+$('stockMaterial').onchange = (e) => applyMaterial(e.target.value);
+$('turretSide').onchange = (e) => applyTurretSide(e.target.value);
 $('btnApplyStock').onclick = () => {
   if (sim.status === 'run' || sim.status === 'hold') return msgKey('S_STOCK_BUSY', {}, 'warn');
   applyStock();
@@ -824,7 +863,10 @@ $('btnFinished').onclick = () => showFinished(!scene.finished);
   app.settings = await api('GET', '/api/settings').catch(() => ({}));
   const s = app.settings;
   if (s.stock) setStockInputs(s.stock);
-  if (s.turret) {
+  applyMaterial(s.material, false);
+  applyTurretSide(s.turretSide, false);
+  // quem nunca mexeu na torre de 8 posições (padrão antigo) passa ao magazine do SinuTrain
+  if (s.turret && !isLegacyDefault(s.turret)) {
     app.turretCfg = sanitizeTurret(s.turret);
     app.turret = buildTurret(app.turretCfg);
     scene.setTurret(app.turret);

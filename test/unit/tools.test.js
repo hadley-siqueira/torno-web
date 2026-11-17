@@ -39,7 +39,9 @@ test('torre padrão e configuração', () => {
   assert.equal(cfg[1], 'drill_10');
   assert.equal(cfg[2], '');
   assert.equal(cfg[3], TURRET_DEFAULT[3], 'tipo desconhecido volta ao padrão');
-  assert.equal(cfg[9], undefined, 'só 8 posições');
+  assert.equal(cfg[9], 'ext_rough_80');
+  assert.equal(cfg[10], '', 'posição ausente fica vazia');
+  assert.equal(cfg[TOOL_SLOTS + 1], undefined, `só ${TOOL_SLOTS} posições`);
   assert.equal(sanitizeTurret('x'), null);
   const custom = buildTurret(cfg);
   assert.equal(custom[2], undefined, 'posição vazia');
