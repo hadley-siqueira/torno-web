@@ -10,14 +10,14 @@ G-code, aperta **Cycle Start** e vê a ferramenta usinando a peça em 3D (Three.
 | ![Bucha pronta na vista Lateral: réguas Z e Ø, leitura dos diâmetros e cota entre duas faces](docs/img/reguas-lateral.png) | ![Eixo perfilado pronto em 3D com meio corte, mostrando a gola e o furo](docs/img/peca-pronta.png) |
 | Passe o mouse para ler Z, Ø externo e Ø interno; clique para medir comprimentos. | Ao separar a peça no corte, ela aparece sozinha em destaque. |
 
-<img src="docs/img/bruto-e-torre.png" alt="Painéis da peça bruta (XA, XI, ZI, ZB, ZA) e da torre de 8 posições" width="300" align="right">
+**Peça bruta e torre configuráveis, salvas com o programa:** os mesmos campos do SinuTrain (XA, XI,
+ZI, ZB, ZA), com bitolas em polegadas, e o material do tarugo; magazine do SinuTrain como padrão,
+montagem da apostila ou torre de 8 posições; posição da torre (atrás, em cima ou na frente). Cada
+programa e cada exemplo guarda a sua configuração. O programa também pode definir a peça com
+`WORKPIECE(...)`, como no SinuTrain.
 
-**Peça bruta e torre configuráveis:** os mesmos campos do SinuTrain (XA, XI, ZI, ZB, ZA), com
-bitolas em polegadas; magazine do SinuTrain como padrão, montagem da apostila ou torre de 8 posições; material do tarugo e
-posição da torre (atrás, em cima ou na frente) escolhíveis.
-O programa também pode definir a peça com `WORKPIECE(...)`, como no SinuTrain.
-
-<br clear="right">
+| ![Janela da peça bruta: XA, XI, ZI, ZB, ZA, material do tarugo e dialeto](docs/img/janela-peca-bruta.png) | ![Janela da torre: posição da torre e as 16 posições do magazine do SinuTrain, com os nomes ROUGHING_T80 A, DRILL_32 etc.](docs/img/janela-torre.png) |
+|---|---|
 
 ## Como rodar
 
