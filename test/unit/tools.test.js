@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  TOOL_TYPES, TURRET_DEFAULT, TOOL_SLOTS, buildTurret, sanitizeTurret, lowerBoundary, upperBoundary, insertSpan, getTool,
+  TOOL_TYPES, TURRET_DEFAULT, TURRET_PRESETS, TOOL_SLOTS, buildTurret, sanitizeTurret, lowerBoundary, upperBoundary, insertSpan, getTool,
+  withEdge,
 } from '../../shared/tools.js';
 
 test('catálogo: nomes PT/EN, tipo válido e geometria coerente', () => {
@@ -47,4 +48,14 @@ test('torre padrão e configuração', () => {
   assert.equal(custom[2], undefined, 'posição vazia');
   assert.equal(getTool(2, custom), null);
   assert.equal(getTool(1, custom).kind, 'axial');
+});
+
+test('bedame: D1 = canto direito no SinuTrain, canto esquerdo na máquina da escola', () => {
+  const st = buildTurret(TURRET_DEFAULT)[5]; // PLUNGE_CUTTER_3 A
+  assert.deepEqual(insertSpan(withEdge(st, 1).insert), [-3, 0], 'SinuTrain D1: pastilha à esquerda da referência');
+  assert.deepEqual(insertSpan(withEdge(st, 2).insert), [0, 3], 'SinuTrain D2: canto esquerdo');
+  const lab = buildTurret(TURRET_PRESETS.apostila)[2];
+  assert.equal(lab.type, 'groove_3_lab');
+  assert.deepEqual(insertSpan(withEdge(lab, 1).insert), [0, 3], 'escola D1: canto esquerdo');
+  assert.deepEqual(insertSpan(withEdge(lab, 2).insert), [-3, 0], 'escola D2: canto direito');
 });

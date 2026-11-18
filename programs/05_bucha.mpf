@@ -87,7 +87,7 @@ G0 X150 Z100
 ; ========== CORTE (T5) ==========
 T5 D1
 G97 S700 M3
-G0 X54 Z-43
+G0 X54 Z-40
 G1 X22 F0.05              ; basta passar do furo para separar a bucha
 G0 X150
 G0 Z100

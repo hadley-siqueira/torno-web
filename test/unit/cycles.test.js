@@ -60,6 +60,14 @@ test('CYCLE95 só desbaste (VARI 1) deixa o sobremetal; acabamento (VARI 5) tira
   assert.ok(feeds >= 15, `passes de desbaste: ${feeds}`);
 });
 
+test('CYCLE95 com mais de 12 parâmetros (SinuTrain): avisa e ignora os que sobram', () => {
+  const r = run('CYCLE95("C1:C2", 2, 0.1, 0.2, , 0.25, 0.15, 0.1, 9, , 0, 1, 0, 2)');
+  assert.equal(r.parsed.alarm, null);
+  assert.ok(r.parsed.warnings.some((w) => w.code === 'W_CYCLE_EXTRA_ARGS'), 'aviso de parâmetros a mais');
+  const ok = run('CYCLE95("C1:C2", 2, 0.1, 0.2, , 0.25, 0.15, 0.1, 9, , 0, 1, , )');
+  assert.ok(!ok.parsed.warnings.some((w) => w.code === 'W_CYCLE_EXTRA_ARGS'), 'vírgulas vazias no fim não contam');
+});
+
 test('CYCLE95 com rebaixo (contorno que desce e sobe de novo)', () => {
   const cont = 'R1:\nG1 X30 Z0\nZ-10\nX20 Z-15\nZ-20\nX30 Z-25\nZ-35\nX52\nR2:\n';
   // pastilha 35° (T3): a aresta de trás sobe a 52°, então desce no flanco de 45° sem raspar o colar
@@ -119,6 +127,11 @@ test('CYCLE93: canal com largura maior que a ferramenta, flancos inclinados e ca
   assert.deepEqual(a.alarms, []);
   near(a.stock.diameterAt(-13), 42, 'fundo');
   near(a.stock.diameterAt(-10 - 4 * Math.tan(Math.PI / 6) + 2 * Math.tan(Math.PI / 6)), 46, 'meio do flanco 30°', 0.1);
+  // superfície inclinada (STA1 = 10°): o fundo fica reto, a DIAG do ponto inicial
+  const i = runProgram(G + 'CYCLE93(50, -10, 8, 4, 10, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 5, 1)\nG0 X150 Z100\nM30');
+  assert.deepEqual(i.alarms, []);
+  near(i.stock.diameterAt(-10.5), 42, 'fundo reto (direita)');
+  near(i.stock.diameterAt(-17.5), 42, 'fundo reto (esquerda)');
   // ferramenta mais larga que o canal; canal na face
   assert.equal(parseProgram(G + 'CYCLE93(50, -10, 2, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 5, 1)\nM30').alarm.code, 'E_GROOVE_TOOL_WIDTH');
   assert.equal(parseProgram(G + 'CYCLE93(50, -10, 8, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 2, 1)\nM30').alarm.code, 'E_CYCLE93_FACE');

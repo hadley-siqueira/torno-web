@@ -11,7 +11,7 @@
 
 import { getTool, withEdge, findToolByName, DEFAULT_TURRET } from './tools.js';
 import { GCodeAlarm, arcPolyline, fmt } from './geometry.js';
-import { CYCLES, findLabels, parseCallArgs, stripLabel } from './cycles.js';
+import { CYCLES, CYCLE_NPARAMS, findLabels, parseCallArgs, stripLabel } from './cycles.js';
 
 export { GCodeAlarm };
 
@@ -234,6 +234,11 @@ export function parseProgram(text, options = {}) {
         if (!st.spindle) throw new GCodeAlarm('E_SPINDLE_STOPPED');
         if (cy[1] === 'CYCLE97' && st.css) warn(li, 'W_THREAD_CSS');
         const args = parseCallArgs(nc.slice(nc.indexOf('(') + 1, nc.lastIndexOf(')')), cy[1]);
+        // o 802D sl tem 12 parâmetros no CYCLE95 (o SinuTrain/840D sl aceita mais): os que
+        // sobram são ignorados com aviso
+        const nmax = CYCLE_NPARAMS[cy[1]];
+        while (args.length > nmax && args[args.length - 1] === undefined) args.pop();
+        if (args.length > nmax) warn(li, 'W_CYCLE_EXTRA_ARGS', { c: cy[1], n: args.length, max: nmax });
         const ctx = {
           lines, labels, subprograms: opt.subprograms, cur: [st.z, st.r], F: st.F, diam: st.diam,
           tool: withEdge(getTool(st.tool, opt.turret), st.D),

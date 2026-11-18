@@ -11,7 +11,7 @@ O planejamento geral está em [PLANO.md](PLANO.md).
 | Limitação | Efeito para o aluno | Caminho sugerido |
 |---|---|---|
 | **Ciclos que faltam** (CYCLE94/96/98, CYCLE81–83; G71/G70/G72/G75/G76/G92 Fanuc). Já existem CYCLE93, CYCLE95 e CYCLE97 | O bloco é ignorado com aviso | Expandir cada ciclo em movimentos no interpretador (`shared/cycles.js`) |
-| **Detalhes dos ciclos sem confirmação** (ver PLANO > Suposições; o resto foi conferido nos manuais da Siemens): `DIAG` do CYCLE93 em raio, fundo do canal com `STA1` ≠ 0, fórmulas exatas das profundidades da rosca | A peça sai com as cotas certas; o caminho da ferramenta pode diferir do da máquina | Conferir com o manual do 802D sl e com programas do professor |
+| **Detalhes dos ciclos sem confirmação** (ver PLANO > Suposições; o resto foi conferido nos manuais da Siemens): `DIAG` do CYCLE93 em raio | A peça sai com as cotas certas; o caminho da ferramenta pode diferir do da máquina | Conferir com o manual do 802D sl e com programas do professor |
 | **CYCLE93 na face** (VARI 2/4/6/8) | Alarme: o modelo da peça é um perfil r(z), não guarda um canal na face | Modelo com face própria |
 | **CYCLE95**: sem compensação de raio da ponta; DT/DAM (quebra-cavaco) ignorados; contorno precisa ser uma "função" (sem voltar sobre si mesmo) | Raios e cones sem o erro do raio da ponta | G41/G42 |
 | **Sem subprogramas, parâmetros `R`, `GOTOF`/`GOTOB`, `IF`, `REPEAT`** | Bloco ignorado com aviso | Necessário para os ciclos (contorno em subprograma). Implementar avaliador de expressões e pilha de chamadas |

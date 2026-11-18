@@ -444,7 +444,8 @@ const P93 = ['SPD', 'SPL', 'WIDG', 'DIAG', 'STA1', 'ANG1', 'ANG2', 'RCO1', 'RCO2
 /**
  * CYCLE93(SPD, SPL, WIDG, DIAG, STA1, ANG1, ANG2, RCO1, RCO2, RCI1, RCI2, FAL1, FAL2, IDEP, DTB, VARI, _VRT)
  * SPD = Ø do ponto inicial; SPL = Z do ponto inicial; WIDG = largura no fundo; DIAG =
- * profundidade (raio); STA1 = inclinação da superfície (cone); ANG1/ANG2 = ângulo dos
+ * profundidade (raio) a partir do ponto inicial; STA1 = inclinação da superfície de entrada
+ * (o fundo fica reto, paralelo a Z); ANG1/ANG2 = ângulo dos
  * flancos; RCO = cantos de cima, RCI = cantos do fundo (positivo = raio, negativo = chanfro);
  * FAL1/FAL2 = sobremetal no fundo e nos flancos; IDEP = profundidade de cada mergulho;
  * DTB = espera no fundo (s).
@@ -475,19 +476,27 @@ export function cycle93(args, ctx) {
   if ((tool.kind === 'internal') !== internal) warnings.push({ code: 'W_CYCLE_TOOL_KIND', params: { c: 'CYCLE93' } });
 
   const R = ctx.diam ? p.SPD / 2 : p.SPD;
+  // superfície de entrada: reta pelo ponto inicial com ângulo STA1 em relação a +Z (sobe
+  // para +Z com STA1 < 90°). O fundo do canal fica reto, paralelo a Z, a DIAG do ponto
+  // inicial; quem inclina é só a superfície (manual, fig. 10-37/10-41; professor, 2026-11-18).
   const tanSta = Math.tan(((p.STA1 || 0) * Math.PI) / 180);
-  const vs = (u) => s * (R + Math.abs(u - p.SPL) * tanSta); // superfície (cone se STA1 ≠ 0)
+  const vs = (u) => s * (R + (u - p.SPL) * tanSta);
+  const vb = s * R - p.DIAG;
   const tan1 = Math.tan(((p.ANG1 || 0) * Math.PI) / 180);
   const tan2 = Math.tan(((p.ANG2 || 0) * Math.PI) / 180);
   const S1u = p.SPL;
   const B1u = S1u + dir * p.DIAG * tan1;
   const B2u = B1u + dir * p.WIDG;
-  const S2u = B2u + dir * p.DIAG * tan2;
+  // flanco 2: sobe do fundo com ANG2 até encontrar a superfície inclinada
+  const c = s * tanSta;
+  const d2 = ((p.DIAG + c * (B2u - p.SPL)) * tan2) / (1 - c * dir * tan2);
+  const S2u = B2u + dir * d2;
+  if (!(vs(S2u) - vb > 1e-6) || !(d2 >= -1e-9)) throw new GCodeAlarm('E_CYCLE93_FORM');
   const corners = [
     [S1u - dir * 8, vs(S1u - dir * 8)],
     [S1u, vs(S1u)],
-    [B1u, vs(B1u) - p.DIAG],
-    [B2u, vs(B2u) - p.DIAG],
+    [B1u, vb],
+    [B2u, vb],
     [S2u, vs(S2u)],
     [S2u + dir * 8, vs(S2u + dir * 8)],
   ];
@@ -681,3 +690,5 @@ export function cycle97(args, ctx) {
 }
 
 export const CYCLES = { CYCLE95: cycle95, CYCLE93: cycle93, CYCLE97: cycle97 };
+/** Quantos parâmetros cada ciclo tem no 802D sl. */
+export const CYCLE_NPARAMS = { CYCLE95: P95.length, CYCLE93: P93.length, CYCLE97: P97.length };

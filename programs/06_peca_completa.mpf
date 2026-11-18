@@ -59,10 +59,10 @@ G0 X150 Z100
 ; ========== CANAL DE SAIDA DA ROSCA 5 x D26,5 (T5) ==========
 T5 D1
 G97 S800 M3
-G0 X34 Z-25               ; 1o mergulho: Z-25 a Z-22
+G0 X34 Z-22               ; 1o mergulho: Z-25 a Z-22
 G1 X26.5 F0.05
 G0 X34
-G0 Z-23                   ; 2o mergulho: Z-23 a Z-20
+G0 Z-20                   ; 2o mergulho: Z-23 a Z-20
 G1 X26.5
 G0 X34
 G0 X150 Z100
@@ -180,7 +180,7 @@ G0 X150 Z100
 ; ========== CORTE (T5) ==========
 T5 D1
 G97 S700 M3
-G0 X54 Z-58
+G0 X54 Z-55
 G1 X-1 F0.05
 G0 X150
 G0 Z100

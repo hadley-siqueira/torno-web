@@ -14,8 +14,11 @@
 //   'axial'    – broca no centro da peça (X0)
 // O suporte (holder) é apenas visual.
 // feed: faixa típica de avanço em mm/rot (fora dela o interpretador avisa; não é alarme).
-// edges: outros cortes da mesma ferramenta, escolhidos pelo corretor D (ex.: bedame
-//   D1 = canto esquerdo, D2 = canto direito); dz desloca o ponto de referência.
+// edges: outros cortes da mesma ferramenta, escolhidos pelo corretor D; dz desloca o ponto
+//   de referência. Bedame: no SinuTrain D1 = canto direito e D2 = esquerdo; na máquina do
+//   laboratório D1 = esquerdo e D2 = direito (professor, 2026-11-18). Os bedames do magazine
+//   do SinuTrain seguem o SinuTrain; o "groove_3_lab" (torres da apostila e de 8 posições)
+//   segue a máquina.
 
 const deg = (a) => (a * Math.PI) / 180;
 const polar = (len, angDeg) => [len * Math.cos(deg(angDeg)), len * Math.sin(deg(angDeg))];
@@ -32,6 +35,25 @@ function drill(d, len) {
   const r = d / 2;
   const tip = r / Math.tan(deg(59));
   return [[0, 0], [tip, r], [len, r], [len, -r], [tip, -r]];
+}
+
+/**
+ * Bedame com a referência (D1) no canto direito, como no SinuTrain: a pastilha e o suporte
+ * passam para a esquerda da referência e o D2 vira o canto esquerdo.
+ */
+function rightRef(t, w = 3) {
+  const sh = ([z, x]) => [z - w, x];
+  return {
+    ...t,
+    detail: {
+      pt: t.detail.pt.replace('canto esquerdo', 'canto direito (D1; D2 = esquerdo)'),
+      en: t.detail.en.replace('left corner', 'right corner (D1; D2 = left)'),
+    },
+    insert: t.insert.map(sh),
+    cutZone: t.cutZone && [t.cutZone[0] - w, t.cutZone[1] - w],
+    holder: { ...t.holder, z0: t.holder.z0 - w, z1: t.holder.z1 - w },
+    edges: { 2: { dz: w, name: { pt: 'canto esquerdo', en: 'left corner' } } },
+  };
 }
 
 export const TOOL_TYPES = {
@@ -206,6 +228,16 @@ export const TOOL_TYPES = {
   },
 };
 
+// Bedame da máquina do laboratório (D1 = canto esquerdo), para as torres da apostila e de
+// 8 posições; os bedames do magazine do SinuTrain passam a ter D1 = canto direito.
+TOOL_TYPES.groove_3_lab = {
+  ...TOOL_TYPES.groove_3,
+  stName: undefined,
+  name: { pt: 'Bedame 3 mm (máquina da escola)', en: 'Grooving/parting 3 mm (school machine)' },
+  detail: { pt: 'Canal e corte; referência no canto esquerdo (D1; D2 = direito)', en: 'Grooving and parting; reference at left corner (D1; D2 = right)' },
+};
+for (const k of ['groove_3', 'parting_3', 'groove_int_3']) TOOL_TYPES[k] = rightRef(TOOL_TYPES[k]);
+
 /**
  * Posições do magazine. A máquina da escola tem torre de 8 posições; o SinuTrain usa um
  * magazine maior (MAGAZIN1). As posições 1–13 seguem o SinuTrain; 14–16 completam as
@@ -246,10 +278,10 @@ const EMPTY = Object.fromEntries(Array.from({ length: TOOL_SLOTS }, (_, i) => [i
 export const TURRET_PRESETS = {
   default: TURRET_DEFAULT,
   sinutrain: TURRET_DEFAULT,
-  apostila: { ...EMPTY, 1: 'ext_rough_80', 2: 'groove_3', 6: 'thread_ext_60', 8: 'ext_finish_35' },
+  apostila: { ...EMPTY, 1: 'ext_rough_80', 2: 'groove_3_lab', 6: 'thread_ext_60', 8: 'ext_finish_35' },
   torre8: {
     ...EMPTY,
-    1: 'ext_rough_80', 2: 'ext_finish_35', 3: 'groove_3', 4: 'thread_ext_60',
+    1: 'ext_rough_80', 2: 'ext_finish_35', 3: 'groove_3_lab', 4: 'thread_ext_60',
     5: 'center_drill', 6: 'drill_16', 7: 'boring_bar', 8: 'thread_int_60',
   },
 };
@@ -272,7 +304,7 @@ export function sanitizeTurret(cfg) {
 
 /** A torre de 8 posições que era o padrão até 2026-11: quem nunca a mudou passa ao novo padrão. */
 export function isLegacyDefault(cfg) {
-  const old = TURRET_PRESETS.torre8;
+  const old = { ...TURRET_PRESETS.torre8, 3: 'groove_3' }; // o bedame antigo era o "groove_3"
   return !!cfg && Object.keys(cfg).length <= 8 && [1, 2, 3, 4, 5, 6, 7, 8].every((n) => cfg[n] === old[n]);
 }
 
