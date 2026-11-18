@@ -5,7 +5,7 @@
 ; Material: steel
 ; Torre: sinutrain
 ; T3 (acabamento 35) faceia e faz o contorno: o cone desce para a placa e a pastilha 80 nao tem folga
-; T5 D1 (bedame; no SinuTrain o D1 e o canto direito): alivio, chanfro de tras e corte da peca em Z-150
+; T5 D2 (bedame, canto direito como referencia): alivio, chanfro de tras e corte da peca em Z-150
 N10 G18 G54 G71 G90 G96
 N20 G0 X200 Z200
 N30 T3 D1
@@ -24,7 +24,7 @@ N130 G1 Z-150
 N140 X82
 N150 G0 X200 Z200
 ; ---- alivio D78 atras da peca e chanfro 1x45 de tras (T5, canto direito) ----
-N160 T5 D1
+N160 T5 D2
 N170 X82 Z-150
 N180 G1 X78 F0.1
 N190 Z-170
@@ -40,7 +40,7 @@ N270 G0 X0 Z2
 N280 CYCLE95("INICIO:FIM",1.5,0.09,0.9,0,0.2,0.05,0.1,9,,0,2)
 N290 G0 X200 Z200
 ; ---- corte da peca ----
-N300 T5 D1
+N300 T5 D2
 N310 X82 Z-150
 N320 G1 X0 F0.1
 N325 G0 X85

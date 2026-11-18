@@ -116,7 +116,7 @@ API (todas exigem login, exceto cadastro e login; alterações só com JSON da m
 - Sinumerik: `T1 D1`, comentários `;`, `G4 F` (espera), `G71` (mm), `G54`
 - Peça bruta do SINUMERIK Operate (SinuTrain): `WORKPIECE(,,,"CYLINDER",0,2,120,100,82.55)` e `"PIPE"`
   (tubo) — lida ao abrir o programa e no Cycle Start
-- Corretor `D`: no bedame do magazine do SinuTrain, `D1` = canto direito e `D2` = canto esquerdo (como no SinuTrain); no bedame da máquina da escola (torres da apostila e de 8 posições), `D1` = canto esquerdo
+- Corretor `D`: no bedame, `D1` = canto esquerdo e `D2` = canto direito (como na máquina da escola e no SinuTrain)
 - `M3`/`M4`/`M5`, `M0`/`M1` (parada), `M2`/`M30`, `M8`/`M9`
 - Convenções: X em diâmetro, Z=0 na face, G2 = horário com X para cima.
 

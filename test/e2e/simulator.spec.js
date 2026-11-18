@@ -237,7 +237,7 @@ test('programa do SinuTrain com WORKPIECE e torre da apostila', async ({ page })
   // montagem da apostila: T2 = bedame
   await page.click('#btnTurretDlg');
   await page.getByRole('button', { name: 'Montagem da apostila' }).click();
-  await expect(page.locator('#toolList select').nth(1)).toHaveValue('groove_3_lab');
+  await expect(page.locator('#toolList select').nth(1)).toHaveValue('groove_3');
   await page.click('#turretClose');
   await setCode(page, `N10 WORKPIECE(,,,"CYLINDER",0,2,120,100,82.55)
 N20 G18 G54 G71 G90 G96

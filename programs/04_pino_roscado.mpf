@@ -55,10 +55,10 @@ G1 X41
 G0 X150 Z100
 
 ; ========== CANAL DE SAIDA DA ROSCA (T5) ==========
-; bedame de 3 mm, referencia no canto direito (D1, como no SinuTrain): ocupa de Z-28 a Z-25
+; bedame de 3 mm, referencia no canto esquerdo: ocupa de Z-28 a Z-25
 T5 D1
 G97 S800 M3
-G0 X30 Z-25
+G0 X30 Z-28
 G1 X17 F0.05
 G4 F0.3                   ; espera 0,3 s no fundo
 G0 X30
@@ -102,7 +102,7 @@ G0 X150 Z100
 ; ========== CORTE (T5) ==========
 T5 D1
 G97 S700 M3
-G0 X44 Z-60
+G0 X44 Z-63
 G1 X-1 F0.05              ; sangramento: separa a peca
 G0 X150
 G0 Z100

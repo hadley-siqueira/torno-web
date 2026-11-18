@@ -52,12 +52,12 @@ G0 X150 Z100
 ; ---------- CANAL E CORTE ----------
 T5 D1
 G97 S900 M3
-G0 X34 Z-15
+G0 X34 Z-18
 G1 X26 F0.05          ; canal D26 x 3
 G4 F0.5               ; espera 0.5 s
 G0 X34
 G0 X54
-G0 Z-55
+G0 Z-58
 G1 X-1 F0.06          ; corte (sangramento)
 G0 X150
 G0 Z100

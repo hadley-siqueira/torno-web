@@ -50,12 +50,12 @@ test('torre padrão e configuração', () => {
   assert.equal(getTool(1, custom).kind, 'axial');
 });
 
-test('bedame: D1 = canto direito no SinuTrain, canto esquerdo na máquina da escola', () => {
-  const st = buildTurret(TURRET_DEFAULT)[5]; // PLUNGE_CUTTER_3 A
-  assert.deepEqual(insertSpan(withEdge(st, 1).insert), [-3, 0], 'SinuTrain D1: pastilha à esquerda da referência');
-  assert.deepEqual(insertSpan(withEdge(st, 2).insert), [0, 3], 'SinuTrain D2: canto esquerdo');
-  const lab = buildTurret(TURRET_PRESETS.apostila)[2];
-  assert.equal(lab.type, 'groove_3_lab');
-  assert.deepEqual(insertSpan(withEdge(lab, 1).insert), [0, 3], 'escola D1: canto esquerdo');
-  assert.deepEqual(insertSpan(withEdge(lab, 2).insert), [-3, 0], 'escola D2: canto direito');
+test('bedame: D1 = canto esquerdo e D2 = canto direito, no SinuTrain e na máquina da escola', () => {
+  for (const cfg of [TURRET_DEFAULT, TURRET_PRESETS.apostila]) {
+    const b = buildTurret(cfg)[cfg === TURRET_DEFAULT ? 5 : 2];
+    assert.equal(b.type, 'groove_3');
+    assert.deepEqual(insertSpan(withEdge(b, 1).insert), [0, 3], 'D1: canto esquerdo');
+    assert.deepEqual(insertSpan(withEdge(b, 2).insert), [-3, 0], 'D2: canto direito');
+  }
+  assert.equal(sanitizeTurret({ 2: 'groove_3_lab' })[2], 'groove_3', 'configuração salva em 2026-11-18');
 });
