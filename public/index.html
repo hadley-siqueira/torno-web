@@ -65,6 +65,9 @@
         <button type="button" id="btnTurretDlg" class="setup-btn" data-i18n-title="setup_turret_help">
           <span class="lbl" data-i18n="turret"></span><span id="turretSummary" class="val"></span>
         </button>
+        <button type="button" id="btnCycleDlg" class="setup-btn" data-i18n-title="cycles_help">
+          <span class="lbl" data-i18n="cycles"></span><span class="val">95 · 93 · 97</span>
+        </button>
       </div>
 
       <div class="messages" id="messages"></div>
@@ -163,6 +166,24 @@
     <div class="settings">
       <label class="turret-side" data-i18n-title="turret_side_help"><span data-i18n="turret_side"></span><select id="turretSide"></select></label>
       <div class="turret" id="toolList"></div>
+    </div>
+  </dialog>
+
+  <!-- Ciclos: parâmetros com explicação e a linha do ciclo gerada -->
+  <dialog id="dlgCycle" class="card setup-dlg wide cycle-dlg">
+    <div class="dlg-head"><h2 id="cycleTitle"></h2><button type="button" class="btn sm" id="cycleClose" data-i18n="close"></button></div>
+    <div class="cycle-tabs" id="cycleTabs"></div>
+    <p class="muted dlg-note" id="cycleIntro"></p>
+    <datalist id="cycleContours"></datalist>
+    <div class="cycle-fields" id="cycleFields"></div>
+    <div class="cycle-foot">
+      <code id="cyclePreview" class="cycle-preview"></code>
+      <div class="cycle-problems" id="cycleProblems"></div>
+      <div class="row-end">
+        <button type="button" class="btn" id="cycleThreadCalc" data-i18n="cycle_thread_calc" data-i18n-title="cycle_thread_calc_help"></button>
+        <button type="button" class="btn" id="cycleCancel" data-i18n="cancel"></button>
+        <button type="button" class="btn primary" id="cycleInsert"></button>
+      </div>
     </div>
   </dialog>
 

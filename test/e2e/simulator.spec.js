@@ -314,3 +314,33 @@ test('cada exemplo traz a própria torre e peça bruta; o programa salvo guarda 
   await expect(page.locator('#stockSummary')).toContainText('Ø40');
   await expect(page.locator('#stockSummary')).toContainText('Latão');
 });
+
+test('janela de ciclos: insere a linha do CYCLE93 e atualiza uma linha com ciclo', async ({ page }) => {
+  await setCode(page, 'WORKPIECE(,,,"CYLINDER",0,2,80,60,44)\nG18 G90 G95 DIAMON\nT5 D1\nG97 S800 M3 F0.05\nG0 X50 Z2\nZ-15\nM30');
+  // cursor na linha 6: o ciclo entra depois dela
+  await page.locator('#code').evaluate((ta) => {
+    const pos = ta.value.indexOf('Z-15');
+    ta.focus();
+    ta.setSelectionRange(pos, pos);
+  });
+  await page.click('#btnCycleDlg');
+  await page.locator('#cycleTabs button', { hasText: 'CYCLE93' }).click();
+  await expect(page.locator('#cycleTitle')).toHaveText('CYCLE93 – Canal');
+  await page.fill('#cycleFields [data-key="SPD"]', '');
+  await expect(page.locator('#cycleProblems')).toHaveText('Falta preencher: SPD');
+  await expect(page.locator('#cycleInsert')).toBeDisabled();
+  await page.fill('#cycleFields [data-key="SPD"]', '44');
+  await page.fill('#cycleFields [data-key="DIAG"]', '4');
+  await expect(page.locator('#cyclePreview')).toHaveText('CYCLE93(44, -20, 5, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0.3, 5, 1)');
+  await page.click('#cycleInsert');
+  await expect(page.locator('#code')).toHaveValue('WORKPIECE(,,,"CYLINDER",0,2,80,60,44)\nG18 G90 G95 DIAMON\nT5 D1\nG97 S800 M3 F0.05\nG0 X50 Z2\nZ-15\nCYCLE93(44, -20, 5, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0.3, 5, 1)\nM30');
+  await runToEnd(page);
+  await expect(status(page)).toHaveText('FIM');
+  // o cursor ficou na linha do ciclo: abre preenchido e troca a linha
+  await page.click('#btnCycleDlg');
+  await expect(page.locator('#cycleInsert')).toHaveText('Atualizar a linha 7');
+  await expect(page.locator('#cycleFields [data-key="DIAG"]')).toHaveValue('4');
+  await page.fill('#cycleFields [data-key="DIAG"]', '2,5');
+  await page.click('#cycleInsert');
+  await expect(page.locator('#code')).toHaveValue(/\nCYCLE93\(44, -20, 5, 2\.5, .*\)\nM30$/);
+});

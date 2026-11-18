@@ -85,7 +85,7 @@ o servidor cuida de login, sessões, banco de dados e programas dos alunos.
 | Modelo da peça | `shared/stock-model.js` | Perfis externo/interno, remoção de material e colisões (sem 3D) |
 | Motor da simulação | `shared/simulator.js` | Executa os eventos no tempo sobre o modelo da peça (sem interface) |
 | Ferramentas | `shared/tools.js` | Magazine (SinuTrain), montagens prontas e geometria das pastilhas |
-| Ciclos | `shared/cycles.js`, `shared/geometry.js` | CYCLE93/95/97, contorno com rótulos, chanfros e raios de canto |
+| Ciclos | `shared/cycles.js`, `shared/geometry.js`, `shared/cycle-forms.js`, `public/js/cycle-dialog.js` | CYCLE93/95/97, contorno com rótulos, chanfros e raios de canto; formulário dos parâmetros |
 | Aparência | `shared/appearance.js` | Materiais do tarugo e posições da torre (só estética) |
 | Idiomas | `shared/i18n.js` | Textos PT/EN da interface e das mensagens |
 | Medição | `shared/measure.js` | Faces do perfil e passo das réguas (testado no Node) |
@@ -143,6 +143,10 @@ Ciclos do 802D sl: **CYCLE95** (desbaste/acabamento de contorno, com o contorno 
 `"INICIO:FIM"` no próprio programa ou num programa salvo, ex. `"CONT1"`), **CYCLE93** (canal) e
 **CYCLE97** (rosca, com a hélice desenhada na peça). Também `GOTOF`/`GOTOB` com rótulos e, dentro do
 contorno, `CHR=`/`CHF=`/`RND=` e `ANG=`. Exemplo completo em `programs/08_ciclos_sinumerik.mpf`.
+
+O botão **Ciclos** (abaixo do editor) abre um formulário com cada parâmetro do ciclo explicado,
+como a tela de ciclos do comando: ao confirmar, a linha do ciclo entra no programa. Com o cursor numa
+linha que já tem um ciclo, o formulário abre com os valores dela e atualiza a linha.
 
 O Ø externo da peça bruta sugere as bitolas em polegadas (1", 1 1/8", 2", 3 1/4", 3 5/8"…).
 

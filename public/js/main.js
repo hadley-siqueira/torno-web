@@ -9,6 +9,7 @@ import { TOOL_TYPES, TOOL_SLOTS, TURRET_DEFAULT, TURRET_PRESETS, buildTurret, sa
 import { MATERIALS, DEFAULT_MATERIAL, TURRET_SIDES, DEFAULT_TURRET_SIDE, materialOf } from '/shared/appearance.js';
 import { sanitizeSetup, setupFromExample, sameSetup, turretPresetName } from '/shared/setup.js';
 import { Simulator } from '/shared/simulator.js';
+import { initCycleDialog } from './cycle-dialog.js';
 
 const $ = (id) => document.getElementById(id);
 const SPEEDS = [0.5, 1, 2, 5, 10, 20, 50, 100, 200];
@@ -34,6 +35,8 @@ const app = {
   material: DEFAULT_MATERIAL,
   turretSide: DEFAULT_TURRET_SIDE,
 };
+
+let cycleDlg = null; // janela de ciclos (cycle-dialog.js)
 
 // Estado só da interface; o estado da máquina fica no Simulator (shared/simulator.js)
 const ui = {
@@ -151,6 +154,7 @@ function setLang(lang) {
   if (ui.alarmInfo) showAlarmBox(ui.alarmInfo);
   if (scene.renderer) updateGlInfo();
   updateStockInfo();
+  cycleDlg?.rerender();
   rulers.draw();
 }
 
@@ -898,6 +902,16 @@ $('btnStockDlg').onclick = () => {
   $('dlgStock').showModal();
 };
 $('btnTurretDlg').onclick = () => $('dlgTurret').showModal();
+cycleDlg = initCycleDialog({
+  ta,
+  lang: () => app.lang,
+  tr: (key, params) => tr(key, params),
+  changed: (line) => {
+    ta.dispatchEvent(new Event('input'));
+    selectLine(line);
+  },
+});
+$('btnCycleDlg').onclick = () => cycleDlg.open();
 $('stockClose').onclick = () => $('dlgStock').close();
 $('turretClose').onclick = () => $('dlgTurret').close();
 $('turretSide').onchange = (e) => applyTurretSide(e.target.value);

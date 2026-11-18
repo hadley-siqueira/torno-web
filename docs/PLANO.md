@@ -180,8 +180,11 @@ Ciclos do **802D sl** (são estes que os alunos usam na máquina):
 - [x] **Vistas** (2026-11-11): 3D, Lateral (2D em corte), Face, Meio corte e Peça pronta, como no SINUMERIK Operate.
 - [ ] **Vistas que faltam:** duas janelas, medição na vista e ampliação por região.
 - [ ] **Editor melhor:** destaque de sintaxe, erros marcados enquanto digita e ajuda ao passar o mouse sobre G/M.
-- [ ] **Formulários de ciclo** (preencher os parâmetros e gerar a linha do ciclo), no espírito do
-      programGUIDE. Fase posterior.
+- [x] **Formulários de ciclo** (2026-11-18, pedido do professor: "não consegui ver como parametriza os
+      ciclos"): botão **Ciclos** abaixo do editor; CYCLE95/93/97 com cada parâmetro explicado, obrigatórios
+      marcados, prévia da linha, contorno sugerido pelos rótulos do programa e "calcular pelo passo" na
+      rosca. Com o cursor numa linha de ciclo, abre preenchido e atualiza a linha (mantém N e comentário).
+      Falta: figura de cada ciclo (como na tela do comando).
 - [ ] *(Mais tarde, a avaliar)* Programação conversacional por etapas, no estilo ShopTurn.
 
 ### Pedidos de funcionalidade (2026-11-11)
@@ -464,7 +467,7 @@ programas reais do curso rodarem; depois os ciclos, a correção para o professo
 6. **Etapa 6 – operação** (depende da pergunta 14): tabela de ferramentas e corretores, G54–G59 reais,
    JOG/manivela/MDA/overrides, preset, perfil de interface "Máquina".
 7. Depois: desenho técnico da peça (fases A–E), CYCLE93/94/96, CYCLE81–83, subprogramas e `R`,
-   formulários de ciclo, Fanuc avançado, fresadora.
+   Fanuc avançado, fresadora.
 
 ## Decisões registradas
 
@@ -489,7 +492,7 @@ programas reais do curso rodarem; depois os ciclos, a correção para o professo
 | 20 | Correção por blocos | **Não é erro:** ordem das palavras no bloco, repetir ou omitir códigos modais (`G1` em toda linha), `X30` × `X30.0`. **É erro:** número de bloco `N` diferente. **Bloco a mais:** depende da lógica do programa, nem sempre é erro (marcar para o professor conferir, não como erro automático). | 2026-11-18 |
 | 22 | CYCLE95 | Seguir o **802D sl: 12 parâmetros**. O SinuTrain (840D sl) aceita mais; os que sobram geram aviso e são ignorados. | 2026-11-18 |
 | 23 | Bedame D1 | **D1 = canto esquerdo, D2 = canto direito**, na máquina do laboratório **e no SinuTrain**. O professor primeiro disse que no SinuTrain era o direito; depois conferiu no SinuTrain instalado e corrigiu: "o corretor está igual ao nosso torno". O bedame do SinuTrain tem **3 mm**; o professor usava um de **2 mm** (ver pergunta pendente). | 2026-11-18 |
-| 26 | CYCLE93 `DIAG` | **Raio** (profundidade do canal medida no desenho, de cima até o fundo: Ø40 com `DIAG` 4 → fundo Ø32). O professor não respondeu; o usuário pediu para seguir a intuição. Motivos: a figura 10-37 mostra `DIAG` como distância radial; o `_ZSD[0]` (raio/diâmetro) do manual vale só para o `MID` do CYCLE95; o exemplo `CYCLE93(35, 60, 30, 25, …)` foi copiado do manual do 840D, escrito com X em raio (35 − 25 = raio 10), então não decide. Se a máquina mostrar outra coisa, é só trocar a escala em `shared/cycles.js`. | 2026-11-18 |
+| 26 | CYCLE93 `DIAG` | **Raio**: a altura radial do canal, de cima até o fundo (Ø40 com `DIAG` 4 → fundo Ø32). Primeiro foi decidido por intuição; o professor confirmou no mesmo dia ("DIAG do CYCLE93 é a altura radial"). | 2026-11-18 |
 
 ### Impactos das decisões no plano
 
@@ -606,7 +609,7 @@ T1–T3 já existem no simulador. T4–T8 dependem da usinagem interna e da rosc
 |---|---|---|
 | Interface que os alunos veem hoje | **Confirmado** (vídeos de alunos, 2026-11-11): a máquina criada no SinuTrain é **"TORNO CNC – 840D sl 4.95 SP3 HF2"**, com a interface **SINUMERIK Operate**, não a do 802D sl. O código G básico é o mesmo. | — |
 | CYCLE95 | **Confirmado no manual do 802D sl (2026-11-17):** VARI 1–12, rótulos `INICIO:FIM` ou subprograma, ponto inicial = contorno + sobremetal + `_VRT`, passes iguais ≤ MID, degrau tirado seguindo o contorno, afastamento `_VRT` (1 mm), acabamento entrando no início do contorno com G0, contorno com ≥ 3 blocos. **Confirmado pelo professor (2026-11-17):** `MID` (penetração em X) e `FALX` em **diâmetro** (o manual do 840D diz que depende de um dado de máquina, `_ZSD[0]`); por isso `FALX` 0,8–1,0 da apostila = 0,4–0,5 mm por lado. **Ainda suposição:** profundidade única para o contorno todo (o manual recalcula para cada rebaixo, o que muda só o caminho); `DT`/`DAM` não mudam a peça. | professor (respondido: diâmetro) |
-| CYCLE93 | **Confirmado no manual do 840D (2026-11-17):** VARI 1 longitudinal externo com início à esquerda, 5 externo à direita, 3/7 interno, pares = face; 1–8 chanfro como CHF, 11–18 como CHR; recuo `_VRT` (1 mm) para quebrar o cavaco. **Confirmado pela figura 10-37 do manual do 802D sl em português (enviada pelo professor, 2026-11-18):** `WIDG` = largura no **fundo**, entre os cantos vivos (sem os raios `RCI`); `SPL`/`SPD` = canto de cima do lado do ponto inicial (onde fica `RCO1`); `DIAG` medido do ponto inicial até o fundo; `ANG1`/`ANG2` a partir da vertical. **Confirmado pelo professor (2026-11-18):** com `STA1` ≠ 0 o fundo fica **reto** (paralelo a Z); só a superfície de entrada inclina. **Decidido (2026-11-18, decisão 26):** `DIAG` em **raio**; | professor |
+| CYCLE93 | **Confirmado no manual do 840D (2026-11-17):** VARI 1 longitudinal externo com início à esquerda, 5 externo à direita, 3/7 interno, pares = face; 1–8 chanfro como CHF, 11–18 como CHR; recuo `_VRT` (1 mm) para quebrar o cavaco. **Confirmado pela figura 10-37 do manual do 802D sl em português (enviada pelo professor, 2026-11-18):** `WIDG` = largura no **fundo**, entre os cantos vivos (sem os raios `RCI`); `SPL`/`SPD` = canto de cima do lado do ponto inicial (onde fica `RCO1`); `DIAG` medido do ponto inicial até o fundo; `ANG1`/`ANG2` a partir da vertical. **Confirmado pelo professor (2026-11-18):** com `STA1` ≠ 0 o fundo fica **reto** (paralelo a Z); só a superfície de entrada inclina. **Confirmado pelo professor (2026-11-18):** `DIAG` é a altura **radial** (decisão 26); | professor |
 | CYCLE97 | **Confirmado no manual do 802D sl (2026-11-17):** VARI 1/2 penetração constante (externa/interna), 3/4 seção constante; `TDEP` em raio (exemplo M42×2 com 1,23); na rosca **interna**, DM1/DM2 = Ø do furo; início 1 mm acima do Ø; FAL num passe só, depois os passes em vazio; IANG + por um flanco, − alternado; NSP/NUMT. Sentido da rosca pelo sentido do fuso. **Confirmado pelo professor (2026-11-18):** penetração constante = cada passe tira a mesma profundidade; seção constante = a área cortada é a mesma em cada passe e a profundidade diminui passe a passe (o simulador usa `TDEP·k/NRC` e `TDEP·√(k/NRC)`). **Ainda suposição:** saída `ROP` inclinada até a crista; rosca à direita com M4 avançando para a placa (M3 = à esquerda). Obs.: o exemplo do manual usa MPIT=42 dizendo "M42x2", mas MPIT é a rosca grossa (M42 = passo 4,5); o simulador segue a tabela. | professor |
 | Preset e zero da peça | Ferramentas já vêm medidas (corretores preenchidos), como no SinuTrain; o professor disse que não é preciso simular o preset (2026-11-18). **Como é na máquina** (PowerPoint do professor): zero máquina (JOG → REF POINT → CYCLE START); para cada ferramenta, "Medição ferram." → manual: torneia um Ø, mede e digita (Distância a = 0) → "Definir compr. 1"; faceia, mede o comprimento da peça até a placa e digita em Z0 → "Definir compr. 2". Zero da peça: em "Deslocam. origem", G54 com Z = comprimento medido e X = 0. | — |
 | Rotação | **Confirmado** (vídeo de aluno, 2026-11-11): `G96` no cabeçalho e `S200 M4` (Vc = 200 m/min, sentido M4), sem `LIMS`. Os exemplos também mostram `G97` pela fórmula do adesivo; os dois funcionam. | — |
