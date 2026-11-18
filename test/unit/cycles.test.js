@@ -50,13 +50,14 @@ test('CYCLE95 completo (VARI 9) com rótulos: peça com as cotas do contorno', (
 test('CYCLE95 só desbaste (VARI 1) deixa o sobremetal; acabamento (VARI 5) tira', () => {
   const r = run('CYCLE95("C1:C2", 2, 0.1, 0.2, , 0.25, 0.15, 0.1, 1, , , 1)');
   assert.deepEqual(r.alarms, []);
-  near(r.stock.diameterAt(-5), 20.4, 'D20 + 2·FALX');
-  near(r.stock.diameterAt(-15), 30.4, 'D30 + 2·FALX');
+  // FALX e MID em diâmetro (DIAMON), como o resto do X
+  near(r.stock.diameterAt(-5), 20.2, 'D20 + FALX');
+  near(r.stock.diameterAt(-15), 30.2, 'D30 + FALX');
   const f = run('CYCLE95("C1:C2", 2, 0.1, 0.2, , 0.25, 0.15, 0.1, 1, , , 1)\nCYCLE95("C1:C2", , , , , , , 0.1, 5, , , 1)');
   near(f.stock.diameterAt(-5), 20, 'acabado');
-  // passes: profundidade total 15 mm (raio) com MID 2 → 8 passes iguais
+  // passes: profundidade total 15 mm no raio com MID 2 (Ø) = 1 mm no raio → 15 passes
   const feeds = r.parsed.events.filter((e) => e.type === 'feed').length;
-  assert.ok(feeds >= 8, `passes de desbaste: ${feeds}`);
+  assert.ok(feeds >= 15, `passes de desbaste: ${feeds}`);
 });
 
 test('CYCLE95 com rebaixo (contorno que desce e sobe de novo)', () => {

@@ -316,8 +316,10 @@ function resolveContour(npp, ctx) {
 
 /**
  * CYCLE95(NPP, MID, FALZ, FALX, FAL, FF1, FF2, FF3, VARI, DT, DAM, _VRT)
- * MID = profundidade de cada passe (raio); FALZ/FALX/FAL = sobremetal em Z, em X (raio)
- * e paralelo ao contorno; FF1 desbaste, FF2 entrada em rebaixos, FF3 acabamento;
+ * MID = profundidade de cada passe; FALZ/FALX/FAL = sobremetal em Z, em X e paralelo ao
+ * contorno. MID (quando a penetração é em X) e FALX são em DIÂMETRO com DIAMON, como o
+ * resto do X (confirmado pelo professor em 2026-11-17); no faceamento MID é em Z.
+ * FF1 desbaste, FF2 entrada em rebaixos, FF3 acabamento;
  * _VRT = afastamento do contorno (padrão 1 mm). DT/DAM (quebra-cavaco) não mudam a peça.
  *
  * Sequência: vai em rápido ao ponto inicial (fora do contorno, acima do maior Ø mais o
@@ -332,10 +334,11 @@ export function cycle95(args, ctx) {
   if (vari < 1 || vari > 12) throw new GCodeAlarm('E_CYCLE_VARI', { c: 'CYCLE95', v: p.VARI ?? '' });
   const map = MAP95[(vari - 1) % 4];
   const stage = vari <= 4 ? 'rough' : vari <= 8 ? 'finish' : 'complete';
-  const MID = p.MID;
-  if (stage !== 'finish' && !(MID > 0)) throw new GCodeAlarm('E_CYCLE_PARAM', { c: 'CYCLE95', p: 'MID' });
+  if (stage !== 'finish' && !(p.MID > 0)) throw new GCodeAlarm('E_CYCLE_PARAM', { c: 'CYCLE95', p: 'MID' });
+  const kx = ctx.diam === false ? 1 : 0.5; // valores de X em diâmetro (DIAMON) → raio
+  const MID = map.long ? p.MID * kx : p.MID;
   const FALZ = Math.abs(p.FALZ || 0);
-  const FALX = Math.abs(p.FALX || 0);
+  const FALX = Math.abs(p.FALX || 0) * kx;
   const FAL = Math.abs(p.FAL || 0);
   const FF1 = p.FF1 > 0 ? p.FF1 : ctx.F;
   const FF2 = p.FF2 > 0 ? p.FF2 : FF1;
